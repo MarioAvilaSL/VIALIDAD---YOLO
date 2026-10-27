@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <title>Vialidad · Móvil</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="m.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><img src="icon-192.png" alt="" width="30" height="30"><div><b>Vialidad</b><small id="estado">Conectando…</small></div></div>
+  <button type="button" class="ico" id="btn-srv" hidden aria-label="Cambiar servidor">⚙</button>
+</header>
+
+<main>
+  <div id="aviso" class="aviso" hidden></div>
+
+  <section id="v-captura" class="card">
+    <h2>1. Elige qué analizar</h2>
+    <div class="grid3">
+      <label class="big"><input type="file" id="in-foto" accept="image/*" capture="environment" hidden><span class="em">📷</span>Tomar foto</label>
+      <label class="big"><input type="file" id="in-video" accept="video/*" capture="environment" hidden><span class="em">🎥</span>Grabar video</label>
+      <label class="big"><input type="file" id="in-gal" accept="image/*,video/*" hidden><span class="em">🖼</span>Galería</label>
+    </div>
+    <div id="previa" class="previa" hidden></div>
+
+    <div id="opciones" hidden>
+      <h2>2. Opciones</h2>
+      <label>Sensibilidad
+        <select id="o-sens">
+          <option value="normal">Normal (menos falsas alarmas)</option>
+          <option value="sensible">Sensible (detecta más, más falsas alarmas)</option>
+        </select>
+      </label>
+      <div id="o-video" hidden>
+        <div class="seg" role="radiogroup" aria-label="Modo de video">
+          <label><input type="radio" name="modo" value="anotado" checked><span>Video marcado</span></label>
+          <label><input type="radio" name="modo" value="fotogramas"><span>Por fotogramas</span></label>
+        </div>
+        <p class="hint" id="modo-hint"></p>
+        <label id="l-calidad">Detalle del análisis
+          <select id="o-cada">
+            <option value="5">Rápido (1 de cada 5 fotogramas)</option>
+            <option value="3" selected>Normal (1 de cada 3)</option>
+            <option value="1">Máximo detalle (todos, el más lento)</option>
+          </select>
+        </label>
+        <label id="l-intervalo" hidden>Un fotograma cada
+          <select id="o-int">
+            <option value="0.5">0,5 segundos</option>
+            <option value="1" selected>1 segundo</option>
+            <option value="2">2 segundos</option>
+            <option value="5">5 segundos (rápido)</option>
+          </select>
+        </label>
+        <p class="hint" id="eta-hint"></p>
+      </div>
+      <button type="button" class="btn prim" id="btn-analizar">Analizar</button>
+    </div>
+  </section>
+
+  <section id="v-progreso" class="card" hidden>
+    <h2 id="prog-titulo">Analizando…</h2>
+    <div class="pb" id="pb"><i id="pb-i" style="width:0%"></i></div>
+    <p class="hint" id="prog-msg">Subiendo…</p>
+    <button type="button" class="btn ghost" id="btn-cancelar">Cancelar</button>
+  </section>
+
+  <section id="v-resultado" hidden></section>
+</main>
+
+<div id="visor" class="visor" hidden><img alt="Imagen ampliada"><button type="button" class="ico cerrar" aria-label="Cerrar">✕</button></div>
+<div id="toast" class="toast" hidden></div>
+
+<script src="../vendor/chart.umd.js"></script>
+<script src="../vendor/jspdf.umd.min.js"></script>
+<script src="m.js"></script>
+</body>
+</html>

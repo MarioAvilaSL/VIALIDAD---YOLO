@@ -1,0 +1,80 @@
+{
+  "fecha": "2026-10-24T05:54:53",
+  "modo": "full",
+  "modelo": "yolo26s.pt",
+  "imgsz": 640,
+  "paises": [
+    "Japan",
+    "India",
+    "Czech",
+    "United_States",
+    "China_MotorBike"
+  ],
+  "seed": 0,
+  "bloque_split": 50,
+  "val_frac": 0.1,
+  "test_frac": 0.1,
+  "cls_pw": 0.0,
+  "ultralytics": "8.4.184",
+  "torch": "2.11.0+cu130",
+  "cuda": true,
+  "gpu": "Tesla T4",
+  "imagenes_por_split": {
+    "test": 2100,
+    "train": 16626,
+    "val": 2100
+  },
+  "cajas_por_clase": {
+    "train": {
+      "longitudinal_crack": 12823,
+      "transverse_crack": 7021,
+      "alligator_crack": 7884,
+      "pothole": 4870
+    },
+    "val": {
+      "longitudinal_crack": 1595,
+      "transverse_crack": 924,
+      "alligator_crack": 1030,
+      "pothole": 577
+    },
+    "test": {
+      "longitudinal_crack": 1599,
+      "transverse_crack": 891,
+      "alligator_crack": 941,
+      "pothole": 550
+    }
+  },
+  "metricas_resumen": [
+    {
+      "split": "val",
+      "precision": 0.6724,
+      "recall": 0.6019,
+      "mAP50": 0.6601,
+      "mAP50_95": 0.3375
+    },
+    {
+      "split": "test",
+      "precision": 0.692,
+      "recall": 0.5969,
+      "mAP50": 0.6648,
+      "mAP50_95": 0.3526
+    }
+  ],
+  "tiempo_entrenamiento_min": 241.45,
+  "sha256_best_pt": "59e030a042fa97d8e1da8de5dd989e94e1c47227de795a89f827def471ba8d88",
+  "argumentos_entrenamiento": {
+    "data": "/content/rdd2022_yolo/data.yaml",
+    "imgsz": 640,
+    "batch": -1,
+    "device": 0,
+    "workers": 2,
+    "seed": 0,
+    "cls_pw": 0.0,
+    "plots": true,
+    "name": "full_yolo26s",
+    "patience": 20,
+    "epochs": 100,
+    "time": 4.0,
+    "close_mosaic": 3
+  }
+}
