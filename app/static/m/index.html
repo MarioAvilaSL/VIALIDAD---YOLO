@@ -13,7 +13,7 @@
 <body>
 <header class="top">
   <div class="brand"><img src="icon-192.png" alt="" width="30" height="30"><div><b>Vialidad</b><small id="estado">Conectando…</small></div></div>
-  <button type="button" class="ico" id="btn-srv" hidden aria-label="Cambiar servidor">⚙</button>
+  <div class="hbtn"><button type="button" class="ico" id="btn-hist" aria-label="Seguimientos">📋</button><button type="button" class="ico" id="btn-ajustes" aria-label="Ajustes">⚙</button></div>
 </header>
 
 <main>
@@ -36,12 +36,59 @@
           <option value="sensible">Sensible (detecta más, más falsas alarmas)</option>
         </select>
       </label>
+      <div class="seg" role="radiogroup" aria-label="Destino del análisis">
+        <label><input type="radio" name="dest" value="solo" checked><span>Solo analizar</span></label>
+        <label><input type="radio" name="dest" value="guardar"><span>Guardar en el servidor</span></label>
+      </div>
+      <p class="hint" id="dest-hint"></p>
+      <div id="o-guardar" hidden>
+        <label>Tramo
+          <select id="o-tramo"></select>
+        </label>
+        <button type="button" class="btn ghost small" id="btn-nuevo-tramo">+ Añadir / administrar tramos</button>
+
+        <div class="lbl">Fecha y hora</div>
+        <div class="seg" role="radiogroup" aria-label="Fecha">
+          <label><input type="radio" name="fch" value="auto" checked><span>Automática</span></label>
+          <label><input type="radio" name="fch" value="manual"><span>Elegir</span></label>
+        </div>
+        <p class="hint" id="fch-hint"></p>
+        <label id="l-fecha" hidden><span id="t-fecha">Fecha y hora</span><input type="datetime-local" id="o-fecha"></label>
+
+        <div id="g-ubi">
+          <div class="lbl">Ubicación</div>
+          <div class="seg" role="radiogroup" aria-label="Ubicación">
+            <label><input type="radio" name="ubi" value="auto" checked><span>Automática</span></label>
+            <label><input type="radio" name="ubi" value="manual"><span>Elegir</span></label>
+          </div>
+          <p class="hint">Automática: se usa el GPS de la foto si lo trae.</p>
+          <div id="l-ubi" hidden>
+            <div class="dos">
+              <label>Latitud<input type="text" inputmode="decimal" id="o-lat" placeholder="-3.2581"></label>
+              <label>Longitud<input type="text" inputmode="decimal" id="o-lon" placeholder="-79.9554"></label>
+            </div>
+            <button type="button" class="btn ghost small" id="btn-ubi">Usar mi ubicación actual</button>
+          </div>
+        </div>
+
+        <div id="g-gpx" hidden>
+          <label>Ruta GPX (opcional, ubica cada daño del video)<input type="file" id="o-gpx"></label>
+          <label id="l-desfase" hidden>Ajuste de sincronía (segundos)<input type="number" id="o-desfase" value="0" step="1" min="-3600" max="3600"></label>
+          <p class="hint" id="gpx-hint"></p>
+        </div>
+
+        <label>Notas (opcional)<input type="text" id="o-notas" maxlength="2000"></label>
+      </div>
       <div id="o-video" hidden>
         <div class="seg" role="radiogroup" aria-label="Modo de video">
           <label><input type="radio" name="modo" value="anotado" checked><span>Video marcado</span></label>
           <label><input type="radio" name="modo" value="fotogramas"><span>Por fotogramas</span></label>
         </div>
         <p class="hint" id="modo-hint"></p>
+        <label id="l-maxfr">Máximo de fotogramas a analizar
+          <select id="o-maxfr"></select>
+        </label>
+        <p class="hint" id="maxfr-hint"></p>
         <label id="l-calidad">Detalle del análisis
           <select id="o-cada">
             <option value="5">Rápido (1 de cada 5 fotogramas)</option>
@@ -68,6 +115,38 @@
     <div class="pb" id="pb"><i id="pb-i" style="width:0%"></i></div>
     <p class="hint" id="prog-msg">Subiendo…</p>
     <button type="button" class="btn ghost" id="btn-cancelar">Cancelar</button>
+  </section>
+
+  <section id="v-historial" class="card" hidden>
+    <h2>Seguimientos</h2>
+    <label>Tramo<select id="h-tramo"></select></label>
+    <div id="h-resumen"></div>
+    <div id="h-chartbox" class="chartbox" hidden><canvas id="h-ch"></canvas></div>
+    <h3>Análisis guardados</h3>
+    <div id="h-lista" class="hint">Cargando…</div>
+    <button type="button" class="btn dark" id="h-cerrar">Volver</button>
+  </section>
+
+  <section id="v-ajustes" class="card" hidden>
+    <h2>Ajustes</h2>
+    <h3>Tramos del servidor</h3>
+    <div id="lista-tramos" class="hint">Cargando…</div>
+    <h3>Añadir un tramo</h3>
+    <label>Nombre<input type="text" id="n-nombre" maxlength="120" placeholder="Ej.: Av. 25 de Junio, km 3"></label>
+    <label>Ciudad (opcional)<input type="text" id="n-ciudad" maxlength="80"></label>
+    <label>Descripción (opcional)<input type="text" id="n-desc" maxlength="2000"></label>
+    <div class="dos">
+      <label>Latitud (opc.)<input type="text" inputmode="decimal" id="n-lat"></label>
+      <label>Longitud (opc.)<input type="text" inputmode="decimal" id="n-lon"></label>
+    </div>
+    <button type="button" class="btn ghost small" id="btn-ubi-tramo">Usar mi ubicación actual</button>
+    <button type="button" class="btn prim" id="btn-crear-tramo">Crear tramo</button>
+    <div id="a-app" hidden>
+      <h3>Servidor de la app</h3>
+      <p class="hint" id="a-srv"></p>
+      <button type="button" class="btn ghost" id="btn-srv">Cambiar servidor o clave</button>
+    </div>
+    <button type="button" class="btn dark" id="btn-volver">Volver</button>
   </section>
 
   <section id="v-resultado" hidden></section>

@@ -16,7 +16,7 @@ h2{font-size:15px;margin:0 0 12px}h3{font-size:15px;margin:18px 0 8px}
 .previa img,.previa video{width:84px;height:84px;object-fit:cover;border-radius:8px;background:#000}
 .previa b{display:block;word-break:break-all}.previa small{color:var(--mut)}
 label{display:block;font-size:14px;font-weight:600;margin:12px 0}
-select,input[type=number]{display:block;width:100%;margin-top:6px;padding:12px;font-size:16px;border:1px solid #cbd5e1;border-radius:10px;background:#fff}
+select,input[type=number],input[type=text]{display:block;width:100%;margin-top:6px;padding:12px;font-size:16px;border:1px solid #cbd5e1;border-radius:10px;background:#fff}
 .hint{color:var(--mut);font-size:13px;margin:6px 0}
 .seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:#e2e8f0;border-radius:12px;padding:4px;margin-top:6px}
 .seg label{position:relative;margin:0}.seg input{position:absolute;opacity:0}
@@ -51,3 +51,20 @@ select,input[type=number]{display:block;width:100%;margin-top:6px;padding:12px;f
 .visor .cerrar{position:fixed;top:12px;right:12px}
 .toast{position:fixed;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));background:var(--ink);color:#fff;padding:12px 14px;border-radius:12px;font-size:14px;z-index:30}
 .toast.err{background:var(--muy)}
+
+.btn.small{margin-top:8px;padding:11px;font-size:14px}
+.ok{background:#dcfce7;color:#14532d;border-radius:10px;padding:10px 12px;font-size:14px;margin:12px 0}
+#o-guardar,.seg{margin-top:10px}
+
+.lbl{font-size:14px;font-weight:600;margin:14px 0 0}
+.dos{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+input[type=datetime-local]{display:block;width:100%;margin-top:6px;padding:12px;font-size:16px;border:1px solid #cbd5e1;border-radius:10px;background:#fff}
+input[type=file]{display:block;width:100%;margin-top:6px;font-size:14px}
+.tr{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}.tr small{color:var(--mut)}
+
+.hbtn{display:flex;gap:8px}
+.it{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.it img,.it .ph{flex:0 0 64px;width:64px;height:64px;object-fit:cover;border-radius:8px;background:#e2e8f0;display:flex;align-items:center;justify-content:center;font-size:26px}
+.it .tx{flex:1;min-width:0;font-size:14px}.it small{color:var(--mut);display:block}
+.it .badge{font-size:12px;padding:1px 10px}
+.rowh{display:flex;justify-content:space-between;gap:8px;align-items:center;margin:8px 0}

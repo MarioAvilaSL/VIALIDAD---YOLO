@@ -6,6 +6,12 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.os.Handler;
+import android.os.Looper;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -37,6 +43,8 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONObject;
+
 import java.io.OutputStream;
 import java.net.URLEncoder;
 
@@ -47,6 +55,7 @@ import java.net.URLEncoder;
 public class MainActivity extends Activity {
 
     private static final int REQ_ARCHIVO = 1001;
+    private static final int REQ_UBICACION = 1002;
     private static final String PREFS = "vialidad";
 
     private SharedPreferences prefs;
@@ -223,11 +232,9 @@ public class MainActivity extends Activity {
         s = s == null ? "" : s.trim();
         if (s.isEmpty()) return "";
         if (!s.startsWith("http://") && !s.startsWith("https://")) s = "http://" + s;
-
-
-        // Nuevo bloque para limpiar cualquier ruta y conservar únicamente el protocolo, IP y puerto
-        Uri u = Uri.parse(s); 
-        if (u.getScheme() == null || u.getAuthority() == null) return s; 
+        // Nos quedamos solo con esquema + equipo + puerto (se descarta cualquier ruta como /health o /m/).
+        Uri u = Uri.parse(s);
+        if (u.getScheme() == null || u.getAuthority() == null) return s;
         return u.getScheme() + "://" + u.getAuthority();
     }
 
@@ -357,11 +364,91 @@ public class MainActivity extends Activity {
             }
         }
 
+        /** Pide la ubicación actual; el resultado vuelve a la página en window.onUbicacion(lat, lon, error). */
+        @JavascriptInterface
+        public void getLocation() { runOnUiThread(MainActivity.this::pedirUbicacion); }
+
         @JavascriptInterface
         public void changeServer() { runOnUiThread(MainActivity.this::mostrarConfig); }
 
         @JavascriptInterface
         public void reintentar() { runOnUiThread(MainActivity.this::abrirServidor); }
+    }
+
+    /* ---------------------------------------------------------------- ubicación */
+
+    private final Handler handler = new Handler(Looper.getMainLooper());
+
+    private void jsUbicacion(Double lat, Double lon, String error) {
+        String js = "window.onUbicacion && window.onUbicacion(" + lat + "," + lon + ","
+                + (error == null ? "null" : JSONObject.quote(error)) + ")";
+        web.evaluateJavascript(js, null);
+    }
+
+    private void pedirUbicacion() {
+        if (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                || checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            obtenerUbicacion();
+        } else {
+            requestPermissions(new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION,
+                    android.Manifest.permission.ACCESS_COARSE_LOCATION}, REQ_UBICACION);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int req, String[] permisos, int[] resultados) {
+        super.onRequestPermissionsResult(req, permisos, resultados);
+        if (req != REQ_UBICACION) return;
+        boolean ok = false;
+        for (int r : resultados) if (r == PackageManager.PERMISSION_GRANTED) ok = true;
+        if (ok) obtenerUbicacion();
+        else jsUbicacion(null, null, "Permiso de ubicación denegado");
+    }
+
+    private void obtenerUbicacion() {
+        final LocationManager lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        try {
+            Location mejor = null;
+            for (String p : lm.getProviders(true)) {
+                Location l = lm.getLastKnownLocation(p);
+                if (l != null && (mejor == null || l.getTime() > mejor.getTime())) mejor = l;
+            }
+            if (mejor != null && System.currentTimeMillis() - mejor.getTime() < 120000) {
+                jsUbicacion(mejor.getLatitude(), mejor.getLongitude(), null);
+                return;
+            }
+            String prov = lm.isProviderEnabled(LocationManager.GPS_PROVIDER) ? LocationManager.GPS_PROVIDER
+                    : (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER) ? LocationManager.NETWORK_PROVIDER : null);
+            if (prov == null) {
+                if (mejor != null) { jsUbicacion(mejor.getLatitude(), mejor.getLongitude(), null); return; }
+                jsUbicacion(null, null, "Activa la ubicación (GPS) del teléfono");
+                return;
+            }
+            final boolean[] listo = {false};
+            final LocationListener[] oyente = new LocationListener[1];
+            final Runnable tiempo = () -> {
+                if (listo[0]) return;
+                listo[0] = true;
+                lm.removeUpdates(oyente[0]);
+                jsUbicacion(null, null, "No se pudo obtener la ubicación a tiempo (¿estás a cielo abierto?)");
+            };
+            oyente[0] = new LocationListener() {
+                @Override public void onLocationChanged(Location l) {
+                    if (listo[0]) return;
+                    listo[0] = true;
+                    handler.removeCallbacks(tiempo);
+                    lm.removeUpdates(this);
+                    jsUbicacion(l.getLatitude(), l.getLongitude(), null);
+                }
+                @Override public void onStatusChanged(String p, int s, Bundle e) { }
+                @Override public void onProviderEnabled(String p) { }
+                @Override public void onProviderDisabled(String p) { }
+            };
+            lm.requestLocationUpdates(prov, 0L, 0f, oyente[0], Looper.getMainLooper());
+            handler.postDelayed(tiempo, 20000);
+        } catch (SecurityException e) {
+            jsUbicacion(null, null, "Permiso de ubicación denegado");
+        }
     }
 
     private void aviso(String m) {

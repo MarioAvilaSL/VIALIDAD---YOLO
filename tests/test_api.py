@@ -208,3 +208,12 @@ def test_pagina_movil_y_manifest(client):
     assert client.get("/m/m.js").status_code == 200
     assert client.get("/m/manifest.webmanifest").status_code == 200
     assert client.get("/vendor/jspdf.umd.min.js").status_code == 200
+
+
+def test_pagina_movil_tiene_opciones_de_guardado(client):
+    html = client.get("/m/").text
+    js = client.get("/m/m.js").text
+    for clave in ("o-tramo", "o-fecha", "btn-crear-tramo", "o-gpx", "o-maxfr", "v-historial"):
+        assert clave in html
+    assert "/api/capturas" in js and "fecha_captura" in js and "fecha_inicio" in js
+    assert "max_frames" in js and "/seguimiento" in js

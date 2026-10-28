@@ -4,16 +4,4 @@ __pycache__/
 .pytest_cache/
 storage/*
 !storage/.gitkeep
-
-android/.gradle/
-android/build/
-android/app/build/
-android/local.properties
-android/.idea/
-*.mp4
-*.zip
-*.rar
-
-models/last.pt
-runs/**/weights/last.pt
-runs/**/weights/epoch*.pt
+models/*.pt

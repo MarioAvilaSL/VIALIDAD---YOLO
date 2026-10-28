@@ -158,7 +158,7 @@ $env:TEST_DATABASE_URL="postgresql+psycopg://postgres:TU_PASSWORD@localhost:5432
 pytest -q
 ```
 
-La suite (52 pruebas) cubre severidad, tramos, subida, EXIF, validaciones, perfiles de sensibilidad, migración de esquema, modo «solo analizar», video, video marcado, conteo y descarte de daños, GPX y acceso con clave.
+La suite (53 pruebas) cubre severidad, tramos, subida, EXIF, validaciones, perfiles de sensibilidad, migración de esquema, modo «solo analizar», video, video marcado, conteo y descarte de daños, GPX y acceso con clave.
 
 ## Estructura del repositorio
 
@@ -196,7 +196,15 @@ Bandas: < 15 Bueno · < 35 Regular · < 60 Malo · ≥ 60 Muy malo.
 - **Sin `APP_TOKEN` no hay autenticación.** Usa `--host 127.0.0.1` para uso local. Con `--host 0.0.0.0` (app móvil) la conexión es HTTP sin cifrar: úsala solo en una red de confianza y con `APP_TOKEN`.
 - Copias de seguridad: `pg_dump` y la carpeta `storage/` (la base guarda solo las rutas).
 
+## Licencias y datos
 
-## Autor
+- **Ultralytics YOLO:** AGPL-3.0. Verifica sus condiciones si ofreces el sistema como servicio a terceros.
+- **RDD2022:** conjunto de datos de daños viales; revisa su licencia y cita a sus autores en tu trabajo.
+- **Leaflet** (BSD-2), **Chart.js** (MIT), **JSZip** y **jsPDF** (MIT): incluidos con sus licencias en `app/static/vendor/`.
+- **Licencia de este repositorio:** **MIT** (ver `LICENSE`): uso libre, con la condición de conservar el aviso de copyright y el nombre del autor. Los componentes de terceros (en especial Ultralytics, AGPL-3.0) mantienen sus propias licencias: ver `THIRD_PARTY_NOTICES.md`.
+
+## Autor y cómo citar
 
 Mario Ávila · Universidad Técnica de Machala
+
+Si usas este trabajo, menciona al autor y el repositorio: *Mario Ávila, «Vialidad · Detección de daños viales con YOLO26», 2026, https://github.com/MarioAvilaSL/VIABILIDAD---YOLO*.

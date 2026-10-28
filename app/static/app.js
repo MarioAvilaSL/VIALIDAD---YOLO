@@ -13,7 +13,7 @@ const CLASES = {
 const CAL_CLASS = { "Bueno": "b-Bueno", "Regular": "b-Regular", "Malo": "b-Malo", "Muy malo": "b-Muy" };
 const CAL_COLOR = { "Bueno": "#16a34a", "Regular": "#ca8a04", "Malo": "#ea580c", "Muy malo": "#dc2626" };
 const ORIGEN = { exif: "EXIF de la foto", manual: "ingresada a mano", subida: "momento de la subida" };
-const VIEWS = { panel: "Panel", analizar: "Analizar fotos", seguimiento: "Seguimiento", tramos: "Tramos" };
+const VIEWS = { panel: "Panel", analizar: "Analizar fotos y videos", seguimiento: "Seguimiento", tramos: "Tramos" };
 
 const nombreClase = (k) => CLASES[k]?.n ?? k;
 const badge = (cal) => `<span class="badge ${CAL_CLASS[cal] || ""}">${esc(cal)}</span>`;

@@ -51,7 +51,30 @@ Requisitos de la app: Android 10 o superior (minSdk 29). No usa librerías exter
 4. En el resultado, abre «Dónde están los daños» y toca **✕** para descartar falsas alarmas; el conteo baja.
 5. **Guardar informe (PDF)** → queda en la carpeta **Descargas** del teléfono. **Guardar video marcado** descarga el mp4.
 
-El análisis móvil es de tipo «solo analizar»: **no guarda nada en la base de datos** ni usa tramos/GPX. Para eso sigue la versión web de PC.
+## Límite de fotogramas (video)
+
+En las opciones de video, «Máximo de fotogramas a analizar» ofrece 250, 500, 1000, 2000, 4000 y 6000 (el tope lo fija `VIDEO_MAX_FRAMES_CAP` en el servidor; por defecto 6000). Si el video tiene más fotogramas, el servidor analiza uno de cada varios para no pasar del límite. Bajo el menú se muestra el tiempo máximo estimado (límite × milisegundos por imagen medidos en tu PC; es solo inferencia, la lectura y el guardado del video suman).
+
+## Guardar en la base de datos del servidor
+
+En «2. Opciones» elige **Guardar en el servidor** en lugar de «Solo analizar». Entonces el resultado, las imágenes y el conteo quedan en PostgreSQL, igual que con la versión de PC:
+
+- **Tramo:** elígelo de la lista. Para crear uno nuevo, pulsa «Añadir / administrar tramos» o el engranaje ⚙ (Ajustes): nombre, ciudad, descripción y, si quieres, coordenadas (puedes usar tu ubicación actual).
+- **Fecha y hora:** «Automática» usa la fecha de la foto (EXIF) o, si no la trae, la hora de envío; en video, la hora de envío. «Elegir» te deja poner la fecha y hora (para video, la hora en que **empezó** la grabación; se sugiere a partir del archivo, pero puede no ser exacta: corrígela).
+- **Ubicación (foto):** «Automática» usa el GPS de la foto si lo trae; «Elegir» permite escribir latitud y longitud o pulsar «Usar mi ubicación actual» (la app pide permiso de ubicación y necesita el GPS encendido).
+- **Ubicación (video):** adjunta un archivo **GPX** grabado en el mismo recorrido (opcional). Hay que indicar la hora de inicio del video y que coincida con el reloj del GPX; si no coincide, el servidor lo rechaza con un mensaje. Hay un ajuste de sincronía en segundos.
+- **Notas** opcionales.
+- En videos guardados, la ✕ que descarta un daño **también queda guardada** en el servidor.
+
+Lo guardado se ve después en la versión web de PC (Tramos y Panel) y también en la app:
+
+## Seguimientos (historial en el teléfono)
+
+El botón 📋 de la esquina superior abre una vista simple del historial guardado:
+
+- Eliges un **tramo** y ves cuántas fotos y videos tiene, el último índice con su calificación, el mensaje de tendencia (necesita al menos 3 fechas) y una gráfica del índice por fecha.
+- Debajo, la lista de **análisis guardados** (fotos y videos, del más reciente al más antiguo). Al tocar uno se abre su resultado completo: foto marcada, o video con el conteo y los daños; en videos se pueden descartar daños (✕) y el cambio queda guardado.
+- Desde ahí también se puede **guardar el informe PDF** de ese análisis o **eliminarlo del servidor** (pide pulsar dos veces para confirmar).
 
 ## Límites y avisos
 
