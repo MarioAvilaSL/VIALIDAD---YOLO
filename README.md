@@ -207,4 +207,4 @@ Bandas: < 15 Bueno · < 35 Regular · < 60 Malo · ≥ 60 Muy malo.
 
 Mario Ávila · Universidad Técnica de Machala
 
-Si usas este trabajo, menciona al autor y el repositorio: *Mario Ávila, «Vialidad · Detección de daños viales con YOLO26», 2026, https://github.com/MarioAvilaSL/VIABILIDAD---YOLO*.
+Si usas este trabajo, menciona al autor y el repositorio: *Mario Ávila, «Vialidad · Detección de daños viales con YOLO26», 2026, https://github.com/MarioAvilaSL/VIALIDAD---YOLO*.
