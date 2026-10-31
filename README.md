@@ -75,6 +75,7 @@ Modelo **YOLO26s** entrenado sobre **RDD2022** (Ultralytics 8.4). Todas las cifr
 | Conjunto | Precisión | Recall | mAP50 | mAP50-95 |
 |---|---|---|---|---|
 | Validación (Ultralytics) | 0,672 | 0,602 | 0,660 | 0,337 |
+| Prueba / test (Ultralytics) | 0,692 | 0,597 | 0,665 | 0,353 |
 
 **Calibración de sensibilidad (conjunto de test):**
 
@@ -89,7 +90,17 @@ Por cada detección verdadera adicional del perfil Sensible aparecen ≈ 4 falsa
 
 La calibración se puede repetir con `calibracion/calibracion_sensibilidad.ipynb` (Google Colab).
 
-<!-- Si subes la carpeta de entrenamiento, añade aquí: curvas (results.png), matriz de confusión y args.yaml -->
+### Evidencia del entrenamiento
+
+La carpeta [`entrenamiento/`](entrenamiento/) reúne la configuración (`args.yaml`, `run_info.json`), las métricas por época (`results.csv`), las gráficas y los notebooks de Colab. Resumen de la corrida: 47 épocas en ≈ 4 h sobre una Tesla T4; el mejor modelo corresponde a la época 36. Detalles en [`entrenamiento/README.md`](entrenamiento/README.md).
+
+<p align="center">
+  <img src="entrenamiento/graficas/results.png" alt="Curvas de entrenamiento" width="85%">
+</p>
+
+<p align="center">
+  <img src="entrenamiento/graficas/confusion_matrix_normalized.png" alt="Matriz de confusión normalizada" width="55%">
+</p>
 
 ## Arquitectura
 
@@ -202,6 +213,7 @@ scripts/              medición de velocidad en tu equipo
 sql/schema.sql        esquema de referencia
 tests/                pruebas automáticas (CI en .github/workflows/)
 models/               modelo entrenado
+entrenamiento/        configuración, métricas, gráficas y notebooks del entrenamiento
 storage/              archivos guardados por la app (no se versiona)
 README_MOVIL.md       guía de la app Android
 CONTRIBUTING.md       cómo contribuir y reportar errores
