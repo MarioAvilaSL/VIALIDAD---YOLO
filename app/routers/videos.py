@@ -248,7 +248,7 @@ def cancelar(job_id: str):
 def video_resumen(v: Video) -> dict:
     return {
         "id": v.id, "tramo_id": v.tramo_id, "tramo_nombre": v.tramo.nombre, "archivo": v.archivo_original,
-        "fecha_inicio": v.fecha_inicio.astimezone(TZ) if v.fecha_inicio else None, "origen_fecha": v.origen_fecha, "duracion_s": v.duracion_s, "fps": v.fps,.duracion_s, "fps": v.fps,
+                "fecha_inicio": v.fecha_inicio.astimezone(TZ) if v.fecha_inicio else None, "origen_fecha": v.origen_fecha, "duracion_s": v.duracion_s, "fps": v.fps,
         "ancho": v.ancho, "alto": v.alto, "intervalo_s": v.intervalo_s, "n_frames": v.n_frames,
         "indice_medio": v.indice_medio, "indice_max": v.indice_max, "pct_afectados": v.pct_afectados,
         "calificacion": v.calificacion, "perfil": v.perfil, "modelo_version": v.modelo_version,
