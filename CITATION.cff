@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "Si usas este software, por favor cítalo con estos datos."
+title: "Vialidad: detección y seguimiento de daños viales con YOLO26"
+type: software
+authors:
+  - family-names: "Ávila"
+    given-names: "Mario"
+    affiliation: "Universidad Técnica de Machala"
+repository-code: "https://github.com/MarioAvilaSL/VIABILIDAD---YOLO"
+license: MIT
+keywords:
+  - daños viales
+  - detección de objetos
+  - YOLO26
+  - RDD2022
+  - mantenimiento de pavimentos
+  - Ecuador
+abstract: >-
+  Sistema que detecta baches y grietas en fotos y videos de carreteras,
+  calcula un índice de severidad y hace seguimiento por tramo. Incluye una
+  aplicación web, análisis de video con daños marcados y una app Android.

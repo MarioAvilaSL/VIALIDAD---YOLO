@@ -1,5 +1,9 @@
 # Vialidad · Detección de daños viales con YOLO26
 
+[![CI](https://github.com/MarioAvilaSL/VIABILIDAD---YOLO/actions/workflows/ci.yml/badge.svg)](https://github.com/MarioAvilaSL/VIABILIDAD---YOLO/actions/workflows/ci.yml)
+[![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-green.svg)](LICENSE)
+![Python 3.11–3.13](https://img.shields.io/badge/python-3.11%E2%80%933.13-blue.svg)
+
 Sistema para detectar **baches y grietas** en fotos y videos de carreteras, estimar un **índice de severidad** y llevar el **seguimiento por tramo** a lo largo del tiempo. Incluye una aplicación web, un modo de video con los daños marcados y una app Android que usa el modelo desde un PC en la misma red.
 
 > **Estado:** proyecto académico / prototipo. El modelo se evaluó solo con RDD2022 y **no se ha validado con carreteras de Ecuador**. Los resultados deben verificarse visualmente.
@@ -184,7 +188,7 @@ $env:TEST_DATABASE_URL="postgresql+psycopg://postgres:TU_PASSWORD@localhost:5432
 pytest -q
 ```
 
-La suite (53 pruebas) cubre severidad, tramos, subida, EXIF, validaciones, perfiles de sensibilidad, migración de esquema, modo «solo analizar», video, video marcado, conteo y descarte de daños, GPX y acceso con clave.
+La suite (53 pruebas) se ejecuta automáticamente en cada *push* con GitHub Actions (`.github/workflows/ci.yml`) y cubre severidad, tramos, subida, EXIF, validaciones, perfiles de sensibilidad, migración de esquema, modo «solo analizar», video, video marcado, conteo y descarte de daños, GPX y acceso con clave.
 
 ## Estructura del repositorio
 
@@ -196,10 +200,13 @@ android/              proyecto de Android Studio (WebView)
 calibracion/          notebook de calibración de sensibilidad (Colab)
 scripts/              medición de velocidad en tu equipo
 sql/schema.sql        esquema de referencia
-tests/                pruebas automáticas
+tests/                pruebas automáticas (CI en .github/workflows/)
 models/               modelo entrenado
 storage/              archivos guardados por la app (no se versiona)
 README_MOVIL.md       guía de la app Android
+CONTRIBUTING.md       cómo contribuir y reportar errores
+CITATION.cff          datos para citar el proyecto
+THIRD_PARTY_NOTICES.md  licencias de componentes de terceros
 ```
 
 ## Índice de severidad
@@ -233,4 +240,4 @@ Bandas: < 15 Bueno · < 35 Regular · < 60 Malo · ≥ 60 Muy malo.
 
 Mario Ávila · Universidad Técnica de Machala
 
-Si usas este trabajo, menciona al autor y el repositorio: *Mario Ávila, «Vialidad · Detección de daños viales con YOLO26», 2026, https://github.com/MarioAvilaSL/VIALIDAD---YOLO*.
+Si usas este trabajo, menciona al autor y el repositorio: *Mario Ávila, «Vialidad · Detección de daños viales con YOLO26», 2026, https://github.com/MarioAvilaSL/VIABILIDAD---YOLO*.
