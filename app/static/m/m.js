@@ -131,7 +131,13 @@ function sugerirFecha() {
 const aLocalISOs = (dt) => `${aLocalISO(dt)}:${pad(dt.getSeconds())}`;
 if (window.Android && typeof Android.grabarRecorrido === "function") {
   $("#btn-recorrido").hidden = false; $("#recorrido-hint").hidden = false;
-  $("#btn-recorrido").onclick = () => { try { Android.grabarRecorrido(); } catch (e) { toast("No se pudo abrir la cámara", true); } };
+  $("#l-vivo").hidden = false; $("#l-vivo").style.display = "flex";
+  $("#c-vivo").checked = lsGet("vivo") !== "0";
+  $("#c-vivo").addEventListener("change", () => lsSet("vivo", $("#c-vivo").checked ? "1" : "0"));
+  $("#btn-recorrido").onclick = () => {
+    try { Android.grabarRecorrido($("#c-vivo").checked, $("#o-sens").value); }
+    catch (e) { toast("No se pudo abrir la cámara", true); }
+  };
 }
 window.onRecorrido = async (r) => {
   if (!r || !r.ok) { toast(r && r.error ? r.error : (r && r.cancelado ? "Grabación cancelada" : "No se pudo grabar el recorrido"), !(r && r.cancelado)); return; }
@@ -147,7 +153,8 @@ window.onRecorrido = async (r) => {
       const gb = await (await fetch(r.gpx)).blob();
       const dt = new DataTransfer(); dt.items.add(new File([gb], "recorrido.gpx", { type: "application/gpx+xml" }));
       $("#o-gpx").files = dt.files;
-      toast(`Recorrido listo: ${Math.round(r.dur_s)} s, ${r.puntos} puntos GPS`);
+      const cv = r.conteo_vivo ? Object.values(r.conteo_vivo).reduce((a, b) => a + b, 0) : null;
+      toast(`Recorrido listo: ${Math.round(r.dur_s)} s, ${r.puntos} puntos GPS` + (cv != null ? ` · en vivo ≈ ${cv} daños distintos (estimado)` : ""));
     } else {
       toast("Grabado sin ruta GPS (no hubo señal): los daños no tendrán ubicación", true);
     }

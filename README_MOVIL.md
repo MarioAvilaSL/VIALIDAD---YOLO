@@ -90,7 +90,9 @@ Detalles:
 - Si sales de la pantalla mientras grabas, la grabación se detiene y se conserva.
 - Sin señal GPS el video se graba igual, pero los daños no tendrán ubicación.
 - Los archivos temporales se borran solos a los 2 días.
-- Esta pantalla no analiza en vivo: el análisis se hace al terminar, en el PC.
+- **Análisis en vivo (opcional):** con la casilla «Ver detecciones en vivo» marcada, la app envía un fotograma cada ≈ 1 s al PC y dibuja las cajas sobre la imagen, con un contador de daños distintos. Requiere que el celular y el PC estén en la misma red (en un auto: PC dentro del vehículo y celular conectado a su red, por ejemplo con el punto de acceso). Si se pierde la conexión, la grabación continúa y se muestra «sin conexión».
+- **El contador en vivo es una estimación:** un mismo daño puede verse en varios fotogramas y la app intenta no repetirlo con una regla sencilla (no validada); además el perfil «Sensible» genera falsas alarmas. El informe fiable es el del análisis completo del video al terminar.
+- El video se graba siempre completo; el análisis en vivo no lo reemplaza.
 
 ## Límites y avisos
 

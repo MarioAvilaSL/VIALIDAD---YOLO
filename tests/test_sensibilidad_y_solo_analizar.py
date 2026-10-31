@@ -132,3 +132,15 @@ def test_perfil_sensible_desde_archivo_env(tmp_path):
     assert (p.conf, p.imgsz, p.augment) == (0.05, 800, True)
     assert p.conf_para("pothole") == 0.08 and p.conf_para("transverse_crack") == 0.05 and p.conf_minimo() == 0.05
     assert s.perfil("normal").conf == 0.25            # el normal no cambia
+
+
+def test_analizar_vivo_es_ligero_y_no_guarda(client, falso_detector):
+    antes = _archivos()
+    r = client.post("/api/analizar_vivo", data={"sensibilidad": "sensible"},
+                    files={"file": ("f.jpg", jpeg_bytes(540, 960), "image/jpeg")})
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["ancho"] == 540 and d["alto"] == 960 and len(d["detecciones"]) == 1
+    assert d["detecciones"][0]["clase"] == "pothole" and "imagen_anotada" not in d
+    assert _archivos() == antes and client.get("/api/capturas").json() == []
+    assert client.post("/api/analizar_vivo", files={"file": ("a.jpg", b"basura", "image/jpeg")}).status_code == 400

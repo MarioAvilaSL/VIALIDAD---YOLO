@@ -403,9 +403,14 @@ public class MainActivity extends Activity {
 
         /** Abre la pantalla de grabación de recorrido; el resultado vuelve en window.onRecorrido(obj). */
         @JavascriptInterface
-        public void grabarRecorrido() {
+        public void grabarRecorrido(boolean vivo, String sensibilidad) {
             runOnUiThread(() -> {
-                try { startActivityForResult(new Intent(MainActivity.this, RecorridoActivity.class), REQ_RECORRIDO); }
+                try {
+                    Intent it = new Intent(MainActivity.this, RecorridoActivity.class);
+                    it.putExtra(RecorridoActivity.EXTRA_VIVO, vivo);
+                    it.putExtra(RecorridoActivity.EXTRA_SENS, "sensible".equals(sensibilidad) ? "sensible" : "normal");
+                    it.putExtra(RecorridoActivity.EXTRA_SERVIDOR, prefs.getString("servidor", ""));
+                    startActivityForResult(it, REQ_RECORRIDO); }
                 catch (Exception e) { jsRecorrido(new JSONObject()); aviso("No se pudo abrir la cámara: " + e.getMessage()); }
             });
         }
@@ -434,6 +439,8 @@ public class MainActivity extends Activity {
                 o.put("inicio_ms", data.getLongExtra(RecorridoActivity.EXTRA_INICIO, 0L));
                 o.put("dur_s", data.getDoubleExtra(RecorridoActivity.EXTRA_DUR, 0.0));
                 o.put("puntos", data.getIntExtra(RecorridoActivity.EXTRA_PUNTOS, 0));
+                String cv = data.getStringExtra(RecorridoActivity.EXTRA_CONTEO);
+                if (cv != null && !cv.isEmpty()) o.put("conteo_vivo", new JSONObject(cv));
             } else {
                 o.put("ok", false);
                 String e = data == null ? null : data.getStringExtra(RecorridoActivity.EXTRA_ERROR);

@@ -5,7 +5,11 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
@@ -29,11 +33,19 @@ import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.WindowManager;
+import android.webkit.CookieManager;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
@@ -57,6 +69,10 @@ public class RecorridoActivity extends Activity implements TextureView.SurfaceTe
     public static final String EXTRA_DUR = "dur_s";
     public static final String EXTRA_PUNTOS = "puntos";
     public static final String EXTRA_ERROR = "error";
+    public static final String EXTRA_SERVIDOR = "servidor";   // entrada: URL del servidor
+    public static final String EXTRA_SENS = "sens";           // entrada: normal | sensible
+    public static final String EXTRA_VIVO = "vivo";           // entrada: analizar en vivo
+    public static final String EXTRA_CONTEO = "conteo_vivo";  // salida: JSON con el conteo estimado
 
     private static final int REQ_PERMISOS = 2001;
     private static final long MAX_MS = 15 * 60 * 1000L;       // ≈ 340 MB a 3 Mbps; el servidor admite 500 MB
@@ -71,13 +87,81 @@ public class RecorridoActivity extends Activity implements TextureView.SurfaceTe
         @Override
         protected void onMeasure(int wSpec, int hSpec) {
             int w = View.MeasureSpec.getSize(wSpec), h = View.MeasureSpec.getSize(hSpec);
-            if (rw == 0 || rh == 0) { setMeasuredDimension(w, h); return; }
-            if (w * rh > h * rw) setMeasuredDimension(h * rw / rh, h);   // se ajusta al alto
-            else setMeasuredDimension(w, w * rh / rw);                    // se ajusta al ancho
+            int[] m = ajustar(w, h, rw, rh);
+            setMeasuredDimension(m[0], m[1]);
+        }
+    }
+
+    /** Calcula el tamaño que cabe en (w,h) manteniendo la relación rw:rh. */
+    private static int[] ajustar(int w, int h, int rw, int rh) {
+        if (rw == 0 || rh == 0) return new int[]{w, h};
+        if (w * rh > h * rw) return new int[]{h * rw / rh, h};
+        return new int[]{w, w * rh / rw};
+    }
+
+    /** Detección normalizada (0..1) para dibujar y contar. */
+    private static class Det {
+        String clase; float conf, x1, y1, x2, y2;
+        float cx() { return (x1 + x2) / 2f; }
+        float cy() { return (y1 + y2) / 2f; }
+    }
+
+    private static String etiqueta(String c) {
+        switch (c) {
+            case "pothole": return "bache";
+            case "alligator_crack": return "piel de cocodrilo";
+            case "transverse_crack": return "transversal";
+            case "longitudinal_crack": return "longitudinal";
+            default: return c;
+        }
+    }
+
+    private static int colorClase(String c) {
+        switch (c) {
+            case "pothole": return 0xFFEF4444;
+            case "alligator_crack": return 0xFFF97316;
+            case "transverse_crack": return 0xFF3B82F6;
+            default: return 0xFFFACC15;
+        }
+    }
+
+    /** Capa transparente que dibuja las cajas encima de la vista previa (misma medida que ella). */
+    private static class Capa extends View {
+        private int rw, rh;
+        private List<Det> dets = new ArrayList<>();
+        private final Paint pc = new Paint(Paint.ANTI_ALIAS_FLAG), pt = new Paint(Paint.ANTI_ALIAS_FLAG), pf = new Paint();
+        Capa(Context c) {
+            super(c);
+            pc.setStyle(Paint.Style.STROKE); pc.setStrokeWidth(5f);
+            pt.setTextSize(30f); pt.setColor(Color.WHITE);
+            pf.setStyle(Paint.Style.FILL);
+        }
+        void setAspect(int w, int h) { rw = w; rh = h; requestLayout(); }
+        void poner(List<Det> d) { dets = d; postInvalidate(); }
+        @Override protected void onMeasure(int ws, int hs) {
+            int[] m = ajustar(View.MeasureSpec.getSize(ws), View.MeasureSpec.getSize(hs), rw, rh);
+            setMeasuredDimension(m[0], m[1]);
+        }
+        @Override protected void onDraw(Canvas cv) {
+            int w = getWidth(), h = getHeight();
+            for (Det d : dets) {
+                int col = colorClase(d.clase);
+                pc.setColor(col);
+                RectF r = new RectF(d.x1 * w, d.y1 * h, d.x2 * w, d.y2 * h);
+                cv.drawRect(r, pc);
+                String t = etiqueta(d.clase) + " " + Math.round(d.conf * 100) + "%";
+                float tw = pt.measureText(t);
+                pf.setColor(col);
+                float ty = Math.max(r.top, 34f);
+                cv.drawRect(r.left, ty - 34f, r.left + tw + 12f, ty + 4f, pf);
+                cv.drawText(t, r.left + 6f, ty - 6f, pt);
+            }
         }
     }
 
     private AutoFit tv;
+    private Capa capa;
+    private TextView conteoTxt;
     private TextView info;
     private Button btn;
 
@@ -107,6 +191,10 @@ public class RecorridoActivity extends Activity implements TextureView.SurfaceTe
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        servidor = getIntent().getStringExtra(EXTRA_SERVIDOR);
+        sens = getIntent().getStringExtra(EXTRA_SENS);
+        if (sens == null) sens = "normal";
+        vivoPedido = getIntent().getBooleanExtra(EXTRA_VIVO, false) && servidor != null && !servidor.isEmpty();
         carpeta = new File(getCacheDir(), "recorridos");
         //noinspection ResultOfMethodCallIgnored
         carpeta.mkdirs();
@@ -116,6 +204,19 @@ public class RecorridoActivity extends Activity implements TextureView.SurfaceTe
         tv = new AutoFit(this);
         tv.setSurfaceTextureListener(this);
         raiz.addView(tv, new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
+
+        capa = new Capa(this);
+        raiz.addView(capa, new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
+
+        conteoTxt = new TextView(this);
+        conteoTxt.setTextColor(Color.WHITE);
+        conteoTxt.setTextSize(14);
+        conteoTxt.setPadding(28, 14, 28, 14);
+        conteoTxt.setBackgroundColor(0x99000000);
+        conteoTxt.setVisibility(View.GONE);
+        FrameLayout.LayoutParams lc = new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM);
+        lc.setMargins(0, 0, 0, 240);
+        raiz.addView(conteoTxt, lc);
 
         info = new TextView(this);
         info.setTextColor(Color.WHITE);
@@ -185,6 +286,177 @@ public class RecorridoActivity extends Activity implements TextureView.SurfaceTe
         if (grabando) { detener(); return; }
         setResult(RESULT_CANCELED);
         finish();
+    }
+
+    /* ------------------------------------------------------------------ análisis en vivo (opcional) */
+
+    private String servidor, sens = "normal";
+    private boolean vivoPedido = false, vivoActivo = false;
+    private HandlerThread hiloVivo;
+    private Handler hVivo;
+    private final int[] conteoClase = new int[4];            // bache, cocodrilo, transversal, longitudinal
+    private List<Det> previas1 = new ArrayList<>(), previas2 = new ArrayList<>();
+    private long ultimaRespuestaMs = 0, ultimoErrorMs = 0;
+    private int ultimaLatencia = -1, enFotograma = 0;
+    private String estadoPc = "";
+
+    private static int indiceClase(String c) {
+        switch (c) {
+            case "pothole": return 0;
+            case "alligator_crack": return 1;
+            case "transverse_crack": return 2;
+            default: return 3;
+        }
+    }
+
+    private void iniciarVivo() {
+        if (!vivoPedido || vivoActivo || terminando) return;
+        vivoActivo = true;
+        hiloVivo = new HandlerThread("vivo");
+        hiloVivo.start();
+        hVivo = new Handler(hiloVivo.getLooper());
+        conteoTxt.setVisibility(View.VISIBLE);
+        estadoPc = "PC: conectando…";
+        refrescarConteo();
+        ui.postDelayed(ciclo, 800);
+    }
+
+    private void detenerVivo() {
+        vivoActivo = false;
+        ui.removeCallbacks(ciclo);
+        if (hiloVivo != null) { hiloVivo.quitSafely(); hiloVivo = null; hVivo = null; }
+    }
+
+    private final Runnable ciclo = new Runnable() {
+        @Override public void run() {
+            if (!vivoActivo || terminando || tv == null || !tv.isAvailable() || tamPrev == null) return;
+            final long t0 = SystemClock.elapsedRealtime();
+            final int w = 540, h = Math.round(540f * tamPrev.getWidth() / tamPrev.getHeight());
+            Bitmap bm = null;
+            try { bm = tv.getBitmap(w, h); } catch (Exception ignorada) { }
+            final Handler hv = hVivo;
+            if (bm == null || hv == null) { ui.postDelayed(this, 1000); return; }
+            final Bitmap fb = bm;
+            hv.post(() -> {
+                List<Det> res = null;
+                String err = null;
+                int ms = -1;
+                try {
+                    ByteArrayOutputStream bo = new ByteArrayOutputStream();
+                    fb.compress(Bitmap.CompressFormat.JPEG, 80, bo);
+                    JSONObject j = enviar(bo.toByteArray());
+                    res = new ArrayList<>();
+                    int aw = Math.max(1, j.optInt("ancho", w)), ah = Math.max(1, j.optInt("alto", h));
+                    JSONArray a = j.getJSONArray("detecciones");
+                    for (int i = 0; i < a.length(); i++) {
+                        JSONObject o = a.getJSONObject(i);
+                        Det d = new Det();
+                        d.clase = o.getString("clase");
+                        d.conf = (float) o.optDouble("confianza", 0);
+                        d.x1 = (float) (o.getDouble("x1") / aw); d.x2 = (float) (o.getDouble("x2") / aw);
+                        d.y1 = (float) (o.getDouble("y1") / ah); d.y2 = (float) (o.getDouble("y2") / ah);
+                        res.add(d);
+                    }
+                    ms = (int) Math.round(j.optDouble("tiempo_inferencia_ms", -1));
+                } catch (Exception e) {
+                    err = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+                } finally {
+                    fb.recycle();
+                }
+                final List<Det> r = res; final String e2 = err; final int ms2 = ms;
+                final long dur = SystemClock.elapsedRealtime() - t0;
+                ui.post(() -> {
+                    if (!vivoActivo) return;
+                    if (r != null) alRecibir(r, ms2, (int) dur); else alFallar(e2);
+                    ui.postDelayed(ciclo, Math.max(150, 1000 - dur));
+                });
+            });
+        }
+    };
+
+    /** POST multipart a /api/analizar_vivo; devuelve el JSON de respuesta. */
+    private JSONObject enviar(byte[] jpg) throws Exception {
+        String b = "----vialidad" + System.nanoTime();
+        HttpURLConnection c = (HttpURLConnection) new URL(servidor + "/api/analizar_vivo").openConnection();
+        c.setConnectTimeout(2500);
+        c.setReadTimeout(9000);
+        c.setDoOutput(true);
+        c.setRequestMethod("POST");
+        c.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + b);
+        String ck = CookieManager.getInstance().getCookie(servidor);
+        if (ck != null) c.setRequestProperty("Cookie", ck);
+        try (OutputStream o = c.getOutputStream()) {
+            o.write(("--" + b + "\r\nContent-Disposition: form-data; name=\"sensibilidad\"\r\n\r\n" + sens + "\r\n").getBytes(StandardCharsets.UTF_8));
+            o.write(("--" + b + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"f.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+            o.write(jpg);
+            o.write(("\r\n--" + b + "--\r\n").getBytes(StandardCharsets.UTF_8));
+        }
+        int code = c.getResponseCode();
+        if (code != 200) throw new Exception(code == 401 ? "sin acceso (token)" : "servidor respondió " + code);
+        try (InputStream in = c.getInputStream()) {
+            ByteArrayOutputStream bo = new ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) > 0) bo.write(buf, 0, n);
+            return new JSONObject(bo.toString("UTF-8"));
+        } finally {
+            c.disconnect();
+        }
+    }
+
+    private boolean esMismo(Det d, List<Det> previas) {
+        for (Det p : previas) {
+            if (!p.clase.equals(d.clase)) continue;
+            // Mismo daño si se solapa, o si estaba más arriba en la imagen (el vehículo avanza y el daño "baja").
+            float ix = Math.max(0, Math.min(d.x2, p.x2) - Math.max(d.x1, p.x1));
+            float iy = Math.max(0, Math.min(d.y2, p.y2) - Math.max(d.y1, p.y1));
+            float inter = ix * iy, uni = (d.x2 - d.x1) * (d.y2 - d.y1) + (p.x2 - p.x1) * (p.y2 - p.y1) - inter;
+            if (uni > 0 && inter / uni > 0.25f) return true;
+            float dy = d.cy() - p.cy();
+            if (Math.abs(d.cx() - p.cx()) < 0.15f && dy > -0.03f && dy < 0.45f) return true;
+        }
+        return false;
+    }
+
+    private void alRecibir(List<Det> r, int msServidor, int msTotal) {
+        ultimaRespuestaMs = System.currentTimeMillis();
+        ultimaLatencia = msTotal;
+        enFotograma = r.size();
+        estadoPc = "PC: ✓ " + msTotal + " ms";
+        if (grabando) {
+            for (Det d : r) {
+                if (!esMismo(d, previas1) && !esMismo(d, previas2)) conteoClase[indiceClase(d.clase)]++;
+            }
+            previas2 = previas1;
+            previas1 = r;
+        }
+        capa.poner(r);
+        refrescarConteo();
+    }
+
+    private void alFallar(String e) {
+        ultimoErrorMs = System.currentTimeMillis();
+        estadoPc = "PC: sin conexión (" + e + ")";
+        if (ultimaRespuestaMs == 0 || ultimoErrorMs - ultimaRespuestaMs > 3000) capa.poner(new ArrayList<>());
+        refrescarConteo();
+    }
+
+    private int totalVivo() { return conteoClase[0] + conteoClase[1] + conteoClase[2] + conteoClase[3]; }
+
+    private void refrescarConteo() {
+        if (!vivoPedido) return;
+        conteoTxt.setText(String.format(Locale.US,
+                "En vivo · %s · ahora: %d\nDaños distintos (estimado): %d\nbache %d · cocodrilo %d · transv. %d · long. %d",
+                estadoPc, enFotograma, totalVivo(), conteoClase[0], conteoClase[1], conteoClase[2], conteoClase[3]));
+    }
+
+    private String conteoJson() {
+        try {
+            JSONObject o = new JSONObject();
+            o.put("pothole", conteoClase[0]); o.put("alligator_crack", conteoClase[1]);
+            o.put("transverse_crack", conteoClase[2]); o.put("longitudinal_crack", conteoClase[3]);
+            return o.toString();
+        } catch (Exception e) { return ""; }
     }
 
     /* ------------------------------------------------------------------ GPS */
@@ -263,6 +535,7 @@ public class RecorridoActivity extends Activity implements TextureView.SurfaceTe
                     tamVideo.getHeight() / gcd(tamVideo.getWidth(), tamVideo.getHeight()));
             if (tamPrev == null) tamPrev = tamVideo;
             tv.setAspect(tamPrev.getHeight(), tamPrev.getWidth());    // pantalla en vertical
+            capa.setAspect(tamPrev.getHeight(), tamPrev.getWidth());
 
             camaraAbierta = true;
             cm.openCamera(id, new CameraDevice.StateCallback() {
@@ -315,7 +588,7 @@ public class RecorridoActivity extends Activity implements TextureView.SurfaceTe
                     sesion = s;
                     try { s.setRepeatingRequest(rb.build(), null, hCam); }
                     catch (Exception e) { ui.post(() -> terminarConError("No se pudo iniciar la vista previa.")); return; }
-                    ui.post(() -> { btn.setEnabled(true); actualizarInfo(); });
+                    ui.post(() -> { btn.setEnabled(true); actualizarInfo(); iniciarVivo(); });
                 }
                 @Override public void onConfigureFailed(CameraCaptureSession s) {
                     ui.post(() -> terminarConError("No se pudo configurar la cámara para grabar."));
@@ -327,6 +600,7 @@ public class RecorridoActivity extends Activity implements TextureView.SurfaceTe
     }
 
     private void cerrarCamara() {
+        detenerVivo();
         try { if (sesion != null) sesion.close(); } catch (Exception ignorada) { }
         sesion = null;
         try { if (cam != null) cam.close(); } catch (Exception ignorada) { }
@@ -408,7 +682,8 @@ public class RecorridoActivity extends Activity implements TextureView.SurfaceTe
                 .putExtra(EXTRA_GPX, usados >= 2 ? nombreGpx : "")
                 .putExtra(EXTRA_INICIO, inicioMs)
                 .putExtra(EXTRA_DUR, durS)
-                .putExtra(EXTRA_PUNTOS, usados);
+                .putExtra(EXTRA_PUNTOS, usados)
+                .putExtra(EXTRA_CONTEO, vivoPedido ? conteoJson() : "");
         setResult(RESULT_OK, r);
         finish();
     }
