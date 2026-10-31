@@ -8,18 +8,19 @@ Sistema para detectar **baches y grietas** en fotos y videos de carreteras, esti
 
 ## Contenido
 1. [Características](#características)
-2. [Modelo y resultados medidos](#modelo-y-resultados-medidos)
-3. [Arquitectura](#arquitectura)
-4. [Requisitos](#requisitos)
-5. [Instalación](#instalación)
-6. [Uso](#uso)
-7. [App móvil (Android)](#app-móvil-android)
-8. [Configuración](#configuración)
-9. [Pruebas](#pruebas)
-10. [Estructura del repositorio](#estructura-del-repositorio)
-11. [Índice de severidad](#índice-de-severidad)
-12. [Limitaciones y seguridad](#limitaciones-y-seguridad)
-13. [Licencias y datos](#licencias-y-datos)
+2. [Capturas](#capturas)
+3. [Modelo y resultados medidos](#modelo-y-resultados-medidos)
+4. [Arquitectura](#arquitectura)
+5. [Requisitos](#requisitos)
+6. [Instalación](#instalación)
+7. [Uso](#uso)
+8. [App móvil (Android)](#app-móvil-android)
+9. [Configuración](#configuración)
+10. [Pruebas](#pruebas)
+11. [Estructura del repositorio](#estructura-del-repositorio)
+12. [Índice de severidad](#índice-de-severidad)
+13. [Limitaciones y seguridad](#limitaciones-y-seguridad)
+14. [Licencias y datos](#licencias-y-datos)
 
 ---
 
@@ -34,9 +35,34 @@ Sistema para detectar **baches y grietas** en fotos y videos de carreteras, esti
 | Seguimiento por tramo | Guarda capturas en PostgreSQL, compara fechas y muestra una tendencia indicativa. |
 | Sensibilidad | Perfil **Normal** (menos falsas alarmas) o **Sensible** (detecta más, calibrado con datos). |
 | Descargas | ZIP con informe HTML, JSON, CSV e imágenes marcadas. |
-| Móvil | Foto, video, informe PDF y video marcado desde Android. |
+| Móvil | Foto y video desde Android, con informe PDF y video marcado. Puede guardar en el servidor (tramo, fecha y ubicación a elección), elegir el máximo de fotogramas (250–6000) y consultar los seguimientos. |
 
 **Clases:** `longitudinal_crack`, `transverse_crack`, `alligator_crack`, `pothole`.
+
+## Capturas
+
+### Aplicación web
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/img/web-panel.png" alt="Panel principal"><br><sub><b>Panel:</b> totales, mapa de capturas y últimos análisis.</sub></td>
+    <td width="50%"><img src="docs/img/web-foto.png" alt="Análisis de una foto"><br><sub><b>Foto:</b> cajas, índice de severidad y conteo por tipo de daño.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/img/web-video.png" alt="Video marcado"><br><sub><b>Video marcado:</b> conteo estimado y menú de daños con ✕ para descartar falsas alarmas.</sub></td>
+    <td width="50%"><img src="docs/img/web-tramo.png" alt="Seguimiento de un tramo"><br><sub><b>Seguimiento:</b> evolución del índice por fecha y tendencia indicativa.</sub></td>
+  </tr>
+</table>
+
+### App móvil (Android)
+
+<table>
+  <tr>
+    <td width="50%" align="center"><img src="docs/img/movil-inicio.png" alt="Pantalla principal de la app" width="260"><br><sub><b>Inicio:</b> foto, video o galería, y opciones de análisis.</sub></td>
+    <td width="50%" align="center"><img src="docs/img/movil-resultado.png" alt="Resultado en el teléfono" width="260"><br><sub><b>Resultado:</b> daños marcados, índice e informe PDF.</sub></td>
+  </tr>
+</table>
+
 
 ## Modelo y resultados medidos
 
