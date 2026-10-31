@@ -76,6 +76,22 @@ El botón 📋 de la esquina superior abre una vista simple del historial guarda
 - Debajo, la lista de **análisis guardados** (fotos y videos, del más reciente al más antiguo). Al tocar uno se abre su resultado completo: foto marcada, o video con el conteo y los daños; en videos se pueden descartar daños (✕) y el cambio queda guardado.
 - Desde ahí también se puede **guardar el informe PDF** de ese análisis o **eliminarlo del servidor** (pide pulsar dos veces para confirmar).
 
+## Recorrido con GPS (rama `experimental`)
+
+El botón **🛣 Recorrido con GPS** abre una pantalla de grabación propia de la app:
+
+1. Concede los permisos de cámara y ubicación la primera vez.
+2. Espera a que diga «GPS: ✓» y pulsa **● Iniciar grabación**. Apunta al camino con el celular fijo en vertical.
+3. Pulsa **■ Detener y analizar**. La app guarda el video (sin audio, ≈ 720p) y la ruta GPS, y vuelve a la pantalla principal con la fecha de inicio exacta y el GPX ya cargados.
+4. Elige las opciones (tramo, guardar en el servidor…) y pulsa **Analizar**. Cada daño queda ubicado en el mapa.
+
+Detalles:
+- Duración máxima: 15 minutos (≈ 340 MB; el servidor admite hasta 500 MB).
+- Si sales de la pantalla mientras grabas, la grabación se detiene y se conserva.
+- Sin señal GPS el video se graba igual, pero los daños no tendrán ubicación.
+- Los archivos temporales se borran solos a los 2 días.
+- Esta pantalla no analiza en vivo: el análisis se hace al terminar, en el PC.
+
 ## Límites y avisos
 
 - **PC encendido y misma red.** Sin eso la app no analiza.

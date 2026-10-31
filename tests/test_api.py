@@ -217,3 +217,10 @@ def test_pagina_movil_tiene_opciones_de_guardado(client):
         assert clave in html
     assert "/api/capturas" in js and "fecha_captura" in js and "fecha_inicio" in js
     assert "max_frames" in js and "/seguimiento" in js
+
+
+def test_pagina_movil_tiene_recorrido_con_gps(client):
+    html = client.get("/m/").text
+    js = client.get("/m/m.js").text
+    assert "btn-recorrido" in html
+    assert "grabarRecorrido" in js and "onRecorrido" in js and "/__local/" not in html

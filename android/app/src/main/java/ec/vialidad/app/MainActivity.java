@@ -32,6 +32,7 @@ import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -45,7 +46,11 @@ import android.widget.Toast;
 
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.OutputStream;
+import java.util.HashMap;
+import java.util.Map;
 import java.net.URLEncoder;
 
 /**
@@ -56,6 +61,7 @@ public class MainActivity extends Activity {
 
     private static final int REQ_ARCHIVO = 1001;
     private static final int REQ_UBICACION = 1002;
+    private static final int REQ_RECORRIDO = 1003;
     private static final String PREFS = "vialidad";
 
     private SharedPreferences prefs;
@@ -71,6 +77,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        limpiarRecorridos();
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         raiz = new FrameLayout(this);
@@ -114,6 +121,31 @@ public class MainActivity extends Activity {
                     return true;
                 }
                 return false;
+            }
+
+            /** Sirve a la página los archivos del recorrido grabado (caché de la app) bajo /__local/. */
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView v, WebResourceRequest req) {
+                Uri u = req.getUrl();
+                String srv = prefs.getString("servidor", "");
+                String ruta = u.getPath();
+                if (ruta != null && ruta.startsWith("/__local/") && !srv.isEmpty() && u.toString().startsWith(srv)) {
+                    String nombre = u.getLastPathSegment();
+                    if (nombre != null && nombre.matches("rec_[0-9]+\\.(mp4|gpx)")) {
+                        File f = new File(new File(getCacheDir(), "recorridos"), nombre);
+                        if (f.isFile()) {
+                            try {
+                                Map<String, String> h = new HashMap<>();
+                                h.put("Access-Control-Allow-Origin", "*");
+                                h.put("Content-Length", String.valueOf(f.length()));
+                                return new WebResourceResponse(nombre.endsWith(".mp4") ? "video/mp4" : "application/gpx+xml",
+                                        null, 200, "OK", h, new FileInputStream(f));
+                            } catch (Exception ignorada) { }
+                        }
+                    }
+                    return new WebResourceResponse("text/plain", "utf-8", 404, "Not Found", new HashMap<String, String>(), new java.io.ByteArrayInputStream(new byte[0]));
+                }
+                return super.shouldInterceptRequest(v, req);
             }
 
             @Override
@@ -209,6 +241,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onActivityResult(int req, int res, Intent data) {
+        if (req == REQ_RECORRIDO) { resultadoRecorrido(res, data); return; }
         if (req != REQ_ARCHIVO) { super.onActivityResult(req, res, data); return; }
         ValueCallback<Uri[]> cb = callbackArchivo;
         callbackArchivo = null;
@@ -368,11 +401,57 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void getLocation() { runOnUiThread(MainActivity.this::pedirUbicacion); }
 
+        /** Abre la pantalla de grabación de recorrido; el resultado vuelve en window.onRecorrido(obj). */
+        @JavascriptInterface
+        public void grabarRecorrido() {
+            runOnUiThread(() -> {
+                try { startActivityForResult(new Intent(MainActivity.this, RecorridoActivity.class), REQ_RECORRIDO); }
+                catch (Exception e) { jsRecorrido(new JSONObject()); aviso("No se pudo abrir la cámara: " + e.getMessage()); }
+            });
+        }
+
         @JavascriptInterface
         public void changeServer() { runOnUiThread(MainActivity.this::mostrarConfig); }
 
         @JavascriptInterface
         public void reintentar() { runOnUiThread(MainActivity.this::abrirServidor); }
+    }
+
+    /* ---------------------------------------------------------------- recorrido */
+
+    private void jsRecorrido(JSONObject o) {
+        web.evaluateJavascript("window.onRecorrido && window.onRecorrido(" + o.toString() + ")", null);
+    }
+
+    private void resultadoRecorrido(int res, Intent data) {
+        JSONObject o = new JSONObject();
+        try {
+            if (res == RESULT_OK && data != null) {
+                o.put("ok", true);
+                o.put("video", "/__local/" + data.getStringExtra(RecorridoActivity.EXTRA_VIDEO));
+                String g = data.getStringExtra(RecorridoActivity.EXTRA_GPX);
+                o.put("gpx", g == null || g.isEmpty() ? JSONObject.NULL : "/__local/" + g);
+                o.put("inicio_ms", data.getLongExtra(RecorridoActivity.EXTRA_INICIO, 0L));
+                o.put("dur_s", data.getDoubleExtra(RecorridoActivity.EXTRA_DUR, 0.0));
+                o.put("puntos", data.getIntExtra(RecorridoActivity.EXTRA_PUNTOS, 0));
+            } else {
+                o.put("ok", false);
+                String e = data == null ? null : data.getStringExtra(RecorridoActivity.EXTRA_ERROR);
+                if (e != null) o.put("error", e); else o.put("cancelado", true);
+            }
+        } catch (Exception ignorada) { }
+        jsRecorrido(o);
+    }
+
+    /** Borra grabaciones de recorridos con más de 2 días para no llenar el teléfono. */
+    private void limpiarRecorridos() {
+        try {
+            File[] fs = new File(getCacheDir(), "recorridos").listFiles();
+            if (fs == null) return;
+            long limite = System.currentTimeMillis() - 2L * 24 * 3600 * 1000;
+            for (File f : fs) if (f.lastModified() < limite) //noinspection ResultOfMethodCallIgnored
+                f.delete();
+        } catch (Exception ignorada) { }
     }
 
     /* ---------------------------------------------------------------- ubicación */

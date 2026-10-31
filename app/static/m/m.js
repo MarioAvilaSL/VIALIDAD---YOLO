@@ -45,6 +45,7 @@ async function estado() {
 function elegir(file) {
   if (!file) return;
   limpiarResultado();
+  fechaFija = null; $("#o-fecha").removeAttribute("step");
   archivo = file; esVideo = file.type.startsWith("video/") || /\.(mp4|mov|m4v|webm|3gp|mkv)$/i.test(file.name);
   if (urlPrevia) URL.revokeObjectURL(urlPrevia);
   urlPrevia = URL.createObjectURL(file);
@@ -119,17 +120,48 @@ const pad = (n) => String(n).padStart(2, "0");
 function aLocalISO(dt) { return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`; }
 let duracionVideo = 0;
 
+let fechaFija = null;   // hora exacta (con segundos) de inicio de un recorrido grabado en la app
 function sugerirFecha() {
+  if (fechaFija) { $("#o-fecha").value = fechaFija; return; }
   let t = archivo && archivo.lastModified ? archivo.lastModified : Date.now();
   if (esVideo && duracionVideo) t -= duracionVideo * 1000;   // el archivo se modifica al terminar de grabar
   $("#o-fecha").value = aLocalISO(new Date(t));
 }
+/* ---------- recorrido con GPS (solo dentro de la app Android) ---------- */
+const aLocalISOs = (dt) => `${aLocalISO(dt)}:${pad(dt.getSeconds())}`;
+if (window.Android && typeof Android.grabarRecorrido === "function") {
+  $("#btn-recorrido").hidden = false; $("#recorrido-hint").hidden = false;
+  $("#btn-recorrido").onclick = () => { try { Android.grabarRecorrido(); } catch (e) { toast("No se pudo abrir la cámara", true); } };
+}
+window.onRecorrido = async (r) => {
+  if (!r || !r.ok) { toast(r && r.error ? r.error : (r && r.cancelado ? "Grabación cancelada" : "No se pudo grabar el recorrido"), !(r && r.cancelado)); return; }
+  try {
+    toast("Cargando la grabación…");
+    const vb = await (await fetch(r.video)).blob();
+    const video = new File([vb], "recorrido.mp4", { type: "video/mp4", lastModified: r.inicio_ms + Math.round(r.dur_s * 1000) });
+    elegir(video);
+    fechaFija = aLocalISOs(new Date(r.inicio_ms));
+    document.querySelector("input[name=fch][value=manual]").checked = true;
+    $("#o-fecha").step = 1; $("#o-fecha").value = fechaFija; $("#o-desfase").value = 0;
+    if (r.gpx) {
+      const gb = await (await fetch(r.gpx)).blob();
+      const dt = new DataTransfer(); dt.items.add(new File([gb], "recorrido.gpx", { type: "application/gpx+xml" }));
+      $("#o-gpx").files = dt.files;
+      toast(`Recorrido listo: ${Math.round(r.dur_s)} s, ${r.puntos} puntos GPS`);
+    } else {
+      toast("Grabado sin ruta GPS (no hubo señal): los daños no tendrán ubicación", true);
+    }
+    actualizarGuardar();
+    $("#opciones").scrollIntoView({ behavior: "smooth" });
+  } catch (e) { toast("No se pudo cargar la grabación: " + (e.message || e), true); }
+};
+
 function actualizarGuardar() {
   const man = radio("fch") === "manual";
   $("#l-fecha").hidden = !man;
   $("#t-fecha").textContent = esVideo ? "Fecha y hora en que EMPEZÓ el video" : "Fecha y hora de la foto";
   $("#fch-hint").textContent = man
-    ? "Sugerida a partir del archivo; corrígela si no es la correcta."
+    ? (fechaFija ? "Hora exacta en que empezó tu grabación (no la cambies si usas la ruta GPS)." : "Sugerida a partir del archivo; corrígela si no es la correcta.")
     : (esVideo ? "Automática: se usa la hora en que se envía el análisis." : "Automática: se usa la fecha de la foto (EXIF) o, si no la trae, la hora actual.");
   $("#g-ubi").hidden = esVideo;
   $("#g-gpx").hidden = !esVideo;
