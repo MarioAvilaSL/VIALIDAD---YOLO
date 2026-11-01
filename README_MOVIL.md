@@ -76,6 +76,25 @@ El botón 📋 de la esquina superior abre una vista simple del historial guarda
 - Debajo, la lista de **análisis guardados** (fotos y videos, del más reciente al más antiguo). Al tocar uno se abre su resultado completo: foto marcada, o video con el conteo y los daños; en videos se pueden descartar daños (✕) y el cambio queda guardado.
 - Desde ahí también se puede **guardar el informe PDF** de ese análisis o **eliminarlo del servidor** (pide pulsar dos veces para confirmar).
 
+## Recorrido con GPS (rama `experimental`)
+
+El botón **🛣 Recorrido con GPS** abre una pantalla de grabación propia de la app:
+
+1. Concede los permisos de cámara y ubicación la primera vez.
+2. Espera a que diga «GPS: ✓» y pulsa **● Iniciar grabación**. Apunta al camino con el celular fijo en vertical.
+3. Pulsa **■ Detener y analizar**. La app guarda el video (sin audio, ≈ 720p) y la ruta GPS, y vuelve a la pantalla principal con la fecha de inicio exacta y el GPX ya cargados.
+4. Elige las opciones (tramo, guardar en el servidor…) y pulsa **Analizar**. Cada daño queda ubicado en el mapa.
+
+Detalles:
+- **Vertical u horizontal:** la pantalla de recorrido se gira sola según cómo sostengas el teléfono (también en horizontal invertido). Elige la orientación **antes** de pulsar «Iniciar»: al empezar a grabar se bloquea y el video queda en esa orientación. Si giras el teléfono antes de iniciar, la cámara se prepara de nuevo (puede tardar un instante). Para usarlo como dashcam, móntalo en horizontal.
+- Duración máxima: 15 minutos (≈ 340 MB; el servidor admite hasta 500 MB).
+- Si sales de la pantalla mientras grabas, la grabación se detiene y se conserva.
+- Sin señal GPS el video se graba igual, pero los daños no tendrán ubicación.
+- Los archivos temporales se borran solos a los 2 días.
+- **Análisis en vivo (opcional):** con la casilla «Ver detecciones en vivo» marcada, la app envía un fotograma cada ≈ 1 s al PC y dibuja las cajas sobre la imagen, con un contador de daños distintos. Requiere que el celular y el PC estén en la misma red (en un auto: PC dentro del vehículo y celular conectado a su red, por ejemplo con el punto de acceso). Si se pierde la conexión, la grabación continúa y se muestra «sin conexión».
+- **El contador en vivo es una estimación:** un mismo daño puede verse en varios fotogramas y la app intenta no repetirlo con una regla sencilla (no validada); además el perfil «Sensible» genera falsas alarmas. El informe fiable es el del análisis completo del video al terminar.
+- El video se graba siempre completo; el análisis en vivo no lo reemplaza.
+
 ## Límites y avisos
 
 - **PC encendido y misma red.** Sin eso la app no analiza.

@@ -358,3 +358,23 @@ def test_gpx_errores(client, detector_cuadrados, tmp_path):
     xxe = b'<?xml version="1.0"?><!DOCTYPE a [<!ENTITY x "y">]><gpx/>'
     assert client.post("/api/videos", data={"fecha_inicio": "2026-01-10T08:00"}, files={**f, "gpx": ("r.gpx", xxe, "x")}).status_code == 422
     assert tmp_vacio()
+
+
+def test_video_guarda_conteo_en_vivo(client, detector_por_brillo, tmp_path):
+    tid = crear_tramo(client)
+    data = hacer_video(tmp_path / "v.avi")
+    r = subir_video(client, data, guardar="true", tramo_id=tid, intervalo_s=1,
+                    conteo_vivo='{"pothole": 3, "alligator_crack": 1, "transverse_crack": 0, "longitudinal_crack": 2, "otra": 9}')
+    j = esperar(client, r.json()["job_id"])
+    assert j["estado"] == "listo", j
+    d = client.get(f"/api/videos/{j['resultado']['video_id']}").json()
+    assert d["resumen"]["conteo_vivo"] == {"pothole": 3, "alligator_crack": 1, "transverse_crack": 0, "longitudinal_crack": 2}
+
+
+def test_video_conteo_en_vivo_invalido_o_ausente(client, detector_por_brillo, tmp_path):
+    tid = crear_tramo(client)
+    data = hacer_video(tmp_path / "v.avi")
+    assert subir_video(client, data, guardar="true", tramo_id=tid, conteo_vivo="basura").status_code == 422
+    r = subir_video(client, data, guardar="true", tramo_id=tid, intervalo_s=1)
+    j = esperar(client, r.json()["job_id"])
+    assert client.get(f"/api/videos/{j['resultado']['video_id']}").json()["resumen"]["conteo_vivo"] is None

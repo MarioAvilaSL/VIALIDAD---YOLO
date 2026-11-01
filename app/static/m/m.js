@@ -45,6 +45,7 @@ async function estado() {
 function elegir(file) {
   if (!file) return;
   limpiarResultado();
+  fechaFija = null; vivoApp = null; $("#o-fecha").removeAttribute("step");
   archivo = file; esVideo = file.type.startsWith("video/") || /\.(mp4|mov|m4v|webm|3gp|mkv)$/i.test(file.name);
   if (urlPrevia) URL.revokeObjectURL(urlPrevia);
   urlPrevia = URL.createObjectURL(file);
@@ -119,17 +120,57 @@ const pad = (n) => String(n).padStart(2, "0");
 function aLocalISO(dt) { return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`; }
 let duracionVideo = 0;
 
+let vivoApp = null;     // conteo estimado en vivo del último recorrido grabado en la app
+let fechaFija = null;   // hora exacta (con segundos) de inicio de un recorrido grabado en la app
 function sugerirFecha() {
+  if (fechaFija) { $("#o-fecha").value = fechaFija; return; }
   let t = archivo && archivo.lastModified ? archivo.lastModified : Date.now();
   if (esVideo && duracionVideo) t -= duracionVideo * 1000;   // el archivo se modifica al terminar de grabar
   $("#o-fecha").value = aLocalISO(new Date(t));
 }
+/* ---------- recorrido con GPS (solo dentro de la app Android) ---------- */
+const aLocalISOs = (dt) => `${aLocalISO(dt)}:${pad(dt.getSeconds())}`;
+if (window.Android && typeof Android.grabarRecorrido === "function") {
+  $("#btn-recorrido").hidden = false; $("#recorrido-hint").hidden = false;
+  $("#l-vivo").hidden = false; $("#l-vivo").style.display = "flex";
+  $("#c-vivo").checked = lsGet("vivo") !== "0";
+  $("#c-vivo").addEventListener("change", () => lsSet("vivo", $("#c-vivo").checked ? "1" : "0"));
+  $("#btn-recorrido").onclick = () => {
+    try { Android.grabarRecorrido($("#c-vivo").checked, $("#o-sens").value); }
+    catch (e) { toast("No se pudo abrir la cámara", true); }
+  };
+}
+window.onRecorrido = async (r) => {
+  if (!r || !r.ok) { toast(r && r.error ? r.error : (r && r.cancelado ? "Grabación cancelada" : "No se pudo grabar el recorrido"), !(r && r.cancelado)); return; }
+  try {
+    toast("Cargando la grabación…");
+    const vb = await (await fetch(r.video)).blob();
+    const video = new File([vb], "recorrido.mp4", { type: "video/mp4", lastModified: r.inicio_ms + Math.round(r.dur_s * 1000) });
+    elegir(video);
+    vivoApp = r.conteo_vivo || null;
+    fechaFija = aLocalISOs(new Date(r.inicio_ms));
+    document.querySelector("input[name=fch][value=manual]").checked = true;
+    $("#o-fecha").step = 1; $("#o-fecha").value = fechaFija; $("#o-desfase").value = 0;
+    if (r.gpx) {
+      const gb = await (await fetch(r.gpx)).blob();
+      const dt = new DataTransfer(); dt.items.add(new File([gb], "recorrido.gpx", { type: "application/gpx+xml" }));
+      $("#o-gpx").files = dt.files;
+      const cv = r.conteo_vivo ? Object.values(r.conteo_vivo).reduce((a, b) => a + b, 0) : null;
+      toast(`Recorrido listo: ${Math.round(r.dur_s)} s, ${r.puntos} puntos GPS` + (cv != null ? ` · en vivo ≈ ${cv} daños distintos (estimado)` : ""));
+    } else {
+      toast("Grabado sin ruta GPS (no hubo señal): los daños no tendrán ubicación", true);
+    }
+    actualizarGuardar();
+    $("#opciones").scrollIntoView({ behavior: "smooth" });
+  } catch (e) { toast("No se pudo cargar la grabación: " + (e.message || e), true); }
+};
+
 function actualizarGuardar() {
   const man = radio("fch") === "manual";
   $("#l-fecha").hidden = !man;
   $("#t-fecha").textContent = esVideo ? "Fecha y hora en que EMPEZÓ el video" : "Fecha y hora de la foto";
   $("#fch-hint").textContent = man
-    ? "Sugerida a partir del archivo; corrígela si no es la correcta."
+    ? (fechaFija ? "Hora exacta en que empezó tu grabación (no la cambies si usas la ruta GPS)." : "Sugerida a partir del archivo; corrígela si no es la correcta.")
     : (esVideo ? "Automática: se usa la hora en que se envía el análisis." : "Automática: se usa la fecha de la foto (EXIF) o, si no la trae, la hora actual.");
   $("#g-ubi").hidden = esVideo;
   $("#g-gpx").hidden = !esVideo;
@@ -252,6 +293,7 @@ $("#btn-analizar").onclick = async () => {
   if (guardar) {
     fd.append("tramo_id", tr.id);
     const n = $("#o-notas").value.trim(); if (n) fd.append("notas", n);
+    if (esVideo && vivoApp) fd.append("conteo_vivo", JSON.stringify(vivoApp));
     try {
       if (radio("fch") === "manual") {
         if (!$("#o-fecha").value) throw new Error("Elige la fecha y hora");
@@ -372,7 +414,7 @@ function conteoVivo() {
 
 async function mostrarVideo(res, tr) {
   const m = res.resumen;
-  R = { tipo: "video", res, m, tramo: tr ? tr.nombre : null, hall: (res.hallazgos || []).map((h) => ({ ...h })) };
+  R = { tipo: "video", res, m, tramo: tr ? tr.nombre : null, hall: (res.hallazgos || []).map((h) => ({ ...h })), vivo: m.conteo_vivo || vivoApp || null };
   let av = "";
   if (m.limite_aplicado) av += `<div class="warn">Para no tardar demasiado se analizó menos detalle del pedido (1 de cada ${m.cada_n || "…"} fotogramas / intervalo ${m.intervalo_s} s).</div>`;
   if (res.hallazgos_truncado) av += '<div class="warn">Había demasiados daños distintos: se muestran solo los primeros.</div>';
@@ -421,6 +463,16 @@ async function mostrarVideo(res, tr) {
 function pintarHall() {
   const c = conteoVivo(); const tot = Object.values(c).reduce((a, b) => a + b, 0);
   $("#tot").textContent = tot; $("#cont").innerHTML = chips(c);
+  const vivoApp = R && R.vivo;
+  if (vivoApp && R.tipo === "video") {
+    const ks = ["pothole", "alligator_crack", "transverse_crack", "longitudinal_crack"];
+    const tv = ks.reduce((a, k) => a + (vivoApp[k] || 0), 0);
+    $("#cont").insertAdjacentHTML("beforeend",
+      '<table style="width:100%;margin-top:10px;font-size:13px;border-collapse:collapse"><tr><th align="left">Clase</th><th>En vivo</th><th>Análisis completo</th></tr>' +
+      ks.map((k) => `<tr><td>${esc(nom(k))}</td><td align="center">${vivoApp[k] || 0}</td><td align="center">${c[k] || 0}</td></tr>`).join("") +
+      `<tr style="font-weight:700"><td>Total</td><td align="center">${tv}</td><td align="center">${tot}</td></tr></table>` +
+      '<p class="hint">Comparación del conteo estimado durante la grabación con el del análisis completo (tras tus descartes). Ninguno es una cuenta exacta.</p>');
+  }
   const h = R.hall;
   $("#hall").innerHTML = h.length
     ? `<details><summary><b>Dónde están los daños (${h.length})</b></summary><div class="hgrid" style="margin-top:10px">` +
@@ -609,7 +661,7 @@ async function verTramo(id) {
 async function abrirItem(it, t) {
   try {
     toast("Abriendo…");
-    limpiarResultado(); desdeHist = true; archivo = null;
+    limpiarResultado(); desdeHist = true; archivo = null; vivoApp = null;
     if (it.tipo === "foto") {
       const c = await leer(await fetch("/api/capturas/" + it.id, { cache: "no-store" }));
       mostrarFoto(capturaAFoto(c, { nombre: t.nombre }));

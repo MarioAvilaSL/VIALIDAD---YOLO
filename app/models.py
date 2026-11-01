@@ -105,6 +105,7 @@ class Video(Base):
     cada_n: Mapped[int | None] = mapped_column(Integer)           # modo anotado: se analiza 1 de cada N fotogramas
     ruta_anotado: Mapped[str | None] = mapped_column(String(255))  # video con las cajas dibujadas (solo modo anotado)
     ruta_gps: Mapped[str | None] = mapped_column(Text)             # JSON [[lat,lon],...] del GPX (opcional)
+    conteo_vivo: Mapped[str | None] = mapped_column(Text)          # JSON con el conteo estimado en vivo (app móvil), opcional
     modelo_version: Mapped[str] = mapped_column(String(80))
     tiempo_proceso_s: Mapped[float] = mapped_column(Float)
     notas: Mapped[str | None] = mapped_column(Text)
