@@ -45,7 +45,7 @@ async function estado() {
 function elegir(file) {
   if (!file) return;
   limpiarResultado();
-  fechaFija = null; $("#o-fecha").removeAttribute("step");
+  fechaFija = null; vivoApp = null; $("#o-fecha").removeAttribute("step");
   archivo = file; esVideo = file.type.startsWith("video/") || /\.(mp4|mov|m4v|webm|3gp|mkv)$/i.test(file.name);
   if (urlPrevia) URL.revokeObjectURL(urlPrevia);
   urlPrevia = URL.createObjectURL(file);
@@ -120,6 +120,7 @@ const pad = (n) => String(n).padStart(2, "0");
 function aLocalISO(dt) { return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`; }
 let duracionVideo = 0;
 
+let vivoApp = null;     // conteo estimado en vivo del último recorrido grabado en la app
 let fechaFija = null;   // hora exacta (con segundos) de inicio de un recorrido grabado en la app
 function sugerirFecha() {
   if (fechaFija) { $("#o-fecha").value = fechaFija; return; }
@@ -146,6 +147,7 @@ window.onRecorrido = async (r) => {
     const vb = await (await fetch(r.video)).blob();
     const video = new File([vb], "recorrido.mp4", { type: "video/mp4", lastModified: r.inicio_ms + Math.round(r.dur_s * 1000) });
     elegir(video);
+    vivoApp = r.conteo_vivo || null;
     fechaFija = aLocalISOs(new Date(r.inicio_ms));
     document.querySelector("input[name=fch][value=manual]").checked = true;
     $("#o-fecha").step = 1; $("#o-fecha").value = fechaFija; $("#o-desfase").value = 0;
@@ -460,6 +462,15 @@ async function mostrarVideo(res, tr) {
 function pintarHall() {
   const c = conteoVivo(); const tot = Object.values(c).reduce((a, b) => a + b, 0);
   $("#tot").textContent = tot; $("#cont").innerHTML = chips(c);
+  if (vivoApp && R && R.tipo === "video") {
+    const ks = ["pothole", "alligator_crack", "transverse_crack", "longitudinal_crack"];
+    const tv = ks.reduce((a, k) => a + (vivoApp[k] || 0), 0);
+    $("#cont").insertAdjacentHTML("beforeend",
+      '<table style="width:100%;margin-top:10px;font-size:13px;border-collapse:collapse"><tr><th align="left">Clase</th><th>En vivo</th><th>Análisis completo</th></tr>' +
+      ks.map((k) => `<tr><td>${esc(nom(k))}</td><td align="center">${vivoApp[k] || 0}</td><td align="center">${c[k] || 0}</td></tr>`).join("") +
+      `<tr style="font-weight:700"><td>Total</td><td align="center">${tv}</td><td align="center">${tot}</td></tr></table>` +
+      '<p class="hint">Comparación del conteo estimado durante la grabación con el del análisis completo (tras tus descartes). Ninguno es una cuenta exacta.</p>');
+  }
   const h = R.hall;
   $("#hall").innerHTML = h.length
     ? `<details><summary><b>Dónde están los daños (${h.length})</b></summary><div class="hgrid" style="margin-top:10px">` +

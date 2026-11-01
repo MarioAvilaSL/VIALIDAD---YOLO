@@ -224,4 +224,4 @@ def test_pagina_movil_tiene_recorrido_con_gps(client):
     js = client.get("/m/m.js").text
     assert "btn-recorrido" in html
     assert "grabarRecorrido" in js and "onRecorrido" in js and "/__local/" not in html
-    assert "c-vivo" in html
+    assert "c-vivo" in html and "vivoApp" in js
