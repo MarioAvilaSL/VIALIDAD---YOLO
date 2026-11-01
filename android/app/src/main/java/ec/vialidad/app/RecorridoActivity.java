@@ -4,6 +4,9 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
+import android.content.res.Configuration;
+import android.graphics.Matrix;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -159,6 +162,7 @@ public class RecorridoActivity extends Activity implements TextureView.SurfaceTe
         }
     }
 
+    private FrameLayout raiz;
     private AutoFit tv;
     private Capa capa;
     private TextView conteoTxt;
@@ -199,7 +203,7 @@ public class RecorridoActivity extends Activity implements TextureView.SurfaceTe
         //noinspection ResultOfMethodCallIgnored
         carpeta.mkdirs();
 
-        FrameLayout raiz = new FrameLayout(this);
+        raiz = new FrameLayout(this);
         raiz.setBackgroundColor(Color.BLACK);
         tv = new AutoFit(this);
         tv.setSurfaceTextureListener(this);
@@ -234,6 +238,9 @@ public class RecorridoActivity extends Activity implements TextureView.SurfaceTe
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-1, 150, Gravity.BOTTOM);
         lp.setMargins(40, 0, 40, 60);
         raiz.addView(btn, lp);
+        raiz.addOnLayoutChangeListener((v, l, t, r, bt, ol, ot, or, ob) -> {
+            if (r - l != or - ol || bt - t != ob - ot) ui.post(this::acomodarVistas);
+        });
 
         setContentView(raiz);
 
@@ -336,12 +343,21 @@ public class RecorridoActivity extends Activity implements TextureView.SurfaceTe
             try { bm = tv.getBitmap(w, h); } catch (Exception ignorada) { }
             final Handler hv = hVivo;
             if (bm == null || hv == null) { ui.postDelayed(this, 1000); return; }
-            final Bitmap fb = bm;
+            final Bitmap fb0 = bm;
+            final int giro = giroImagen();
             hv.post(() -> {
                 List<Det> res = null;
                 String err = null;
                 int ms = -1;
+                Bitmap fb = fb0;
                 try {
+                    if (giro != 0) {
+                        Matrix mt = new Matrix();
+                        mt.postRotate(giro);
+                        Bitmap g = Bitmap.createBitmap(fb0, 0, 0, fb0.getWidth(), fb0.getHeight(), mt, true);
+                        fb0.recycle();
+                        fb = g;
+                    }
                     ByteArrayOutputStream bo = new ByteArrayOutputStream();
                     fb.compress(Bitmap.CompressFormat.JPEG, 80, bo);
                     JSONObject j = enviar(bo.toByteArray());
@@ -361,7 +377,8 @@ public class RecorridoActivity extends Activity implements TextureView.SurfaceTe
                 } catch (Exception e) {
                     err = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
                 } finally {
-                    fb.recycle();
+                    if (!fb.isRecycled()) fb.recycle();
+                    if (!fb0.isRecycled()) fb0.recycle();
                 }
                 final List<Det> r = res; final String e2 = err; final int ms2 = ms;
                 final long dur = SystemClock.elapsedRealtime() - t0;
@@ -534,8 +551,7 @@ public class RecorridoActivity extends Activity implements TextureView.SurfaceTe
             tamPrev = elegirTamano(ps, tamVideo.getWidth() / gcd(tamVideo.getWidth(), tamVideo.getHeight()),
                     tamVideo.getHeight() / gcd(tamVideo.getWidth(), tamVideo.getHeight()));
             if (tamPrev == null) tamPrev = tamVideo;
-            tv.setAspect(tamPrev.getHeight(), tamPrev.getWidth());    // pantalla en vertical
-            capa.setAspect(tamPrev.getHeight(), tamPrev.getWidth());
+            ui.post(this::acomodarVistas);
 
             camaraAbierta = true;
             cm.openCamera(id, new CameraDevice.StateCallback() {
@@ -554,6 +570,67 @@ public class RecorridoActivity extends Activity implements TextureView.SurfaceTe
         }
     }
 
+    /** Giro actual de la pantalla en grados (0, 90, 180, 270). */
+    @SuppressWarnings("deprecation")
+    private int rotacionGrados() {
+        switch (getWindowManager().getDefaultDisplay().getRotation()) {
+            case Surface.ROTATION_90: return 90;
+            case Surface.ROTATION_180: return 180;
+            case Surface.ROTATION_270: return 270;
+            default: return 0;
+        }
+    }
+
+    /** Giro (en sentido horario) que hay que aplicar a la imagen de la cámara para verla derecha. */
+    private int giroImagen() {
+        int r = rotacionGrados();
+        return r == 90 ? -90 : (r == 270 ? 90 : r);
+    }
+
+    /**
+     * La vista previa se dibuja siempre con la orientación "natural" del teléfono (vertical) y se gira
+     * como un todo; así la imagen que se envía al PC se puede girar con el mismo ángulo.
+     */
+    private void acomodarVistas() {
+        if (tamPrev == null || raiz == null) return;
+        int W = raiz.getWidth(), H = raiz.getHeight();
+        if (W == 0 || H == 0) return;
+        int rd = rotacionGrados();
+        boolean horiz = rd == 90 || rd == 270;
+        int pw = tamPrev.getWidth(), ph = tamPrev.getHeight();           // la cámara entrega horizontal
+        int[] d = horiz ? ajustar(W, H, pw, ph) : ajustar(W, H, ph, pw);   // tamaño de la imagen ya derecha
+        FrameLayout.LayoutParams lt = horiz ? new FrameLayout.LayoutParams(d[1], d[0], Gravity.CENTER)
+                                            : new FrameLayout.LayoutParams(d[0], d[1], Gravity.CENTER);
+        tv.setLayoutParams(lt);
+        tv.setRotation(giroImagen());
+        capa.setLayoutParams(new FrameLayout.LayoutParams(d[0], d[1], Gravity.CENTER));
+        FrameLayout.LayoutParams lb, lc;
+        if (horiz) {
+            lb = new FrameLayout.LayoutParams(Math.min(520, W / 2), 130, Gravity.BOTTOM | Gravity.RIGHT);
+            lb.setMargins(0, 0, 40, 30);
+            lc = new FrameLayout.LayoutParams(W * 52 / 100, -2, Gravity.BOTTOM | Gravity.LEFT);
+            lc.setMargins(0, 0, 0, 30);
+        } else {
+            lb = new FrameLayout.LayoutParams(-1, 150, Gravity.BOTTOM);
+            lb.setMargins(40, 0, 40, 60);
+            lc = new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM);
+            lc.setMargins(0, 0, 0, 240);
+        }
+        btn.setLayoutParams(lb);
+        conteoTxt.setLayoutParams(lc);
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration c) {
+        super.onConfigurationChanged(c);
+        if (!grabando && !terminando && camaraAbierta) {
+            // el ángulo del video depende de cómo sostienes el teléfono: se vuelve a preparar la cámara
+            cerrarCamara();
+            if (tv.isAvailable() && hCam != null && tienePermiso(Manifest.permission.CAMERA)) abrirCamara();
+        }
+        ui.post(this::acomodarVistas);
+    }
+
     private static int gcd(int a, int b) { return b == 0 ? a : gcd(b, a % b); }
 
     private void prepararGrabador() throws Exception {
@@ -566,7 +643,7 @@ public class RecorridoActivity extends Activity implements TextureView.SurfaceTe
         rec.setVideoFrameRate(30);
         rec.setVideoSize(tamVideo.getWidth(), tamVideo.getHeight());
         rec.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
-        rec.setOrientationHint(orientSensor);       // pantalla fija en vertical
+        rec.setOrientationHint((orientSensor - rotacionGrados() + 360) % 360);   // según cómo sostienes el teléfono al empezar
         rec.prepare();
     }
 
@@ -621,6 +698,7 @@ public class RecorridoActivity extends Activity implements TextureView.SurfaceTe
             inicioElapsed = SystemClock.elapsedRealtime();
             rec.start();
             grabando = true;
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LOCKED);   // el video no cambia de orientación a mitad
             btn.setText("■ Detener y analizar");
             actualizarInfo();
             ui.postDelayed(temporizador, 500);

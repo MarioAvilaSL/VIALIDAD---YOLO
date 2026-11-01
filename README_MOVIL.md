@@ -86,6 +86,7 @@ El botón **🛣 Recorrido con GPS** abre una pantalla de grabación propia de l
 4. Elige las opciones (tramo, guardar en el servidor…) y pulsa **Analizar**. Cada daño queda ubicado en el mapa.
 
 Detalles:
+- **Vertical u horizontal:** la pantalla de recorrido se gira sola según cómo sostengas el teléfono (también en horizontal invertido). Elige la orientación **antes** de pulsar «Iniciar»: al empezar a grabar se bloquea y el video queda en esa orientación. Si giras el teléfono antes de iniciar, la cámara se prepara de nuevo (puede tardar un instante). Para usarlo como dashcam, móntalo en horizontal.
 - Duración máxima: 15 minutos (≈ 340 MB; el servidor admite hasta 500 MB).
 - Si sales de la pantalla mientras grabas, la grabación se detiene y se conserva.
 - Sin señal GPS el video se graba igual, pero los daños no tendrán ubicación.
