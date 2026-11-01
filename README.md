@@ -4,7 +4,7 @@
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-green.svg)](LICENSE)
 ![Python 3.11–3.13](https://img.shields.io/badge/python-3.11%E2%80%933.13-blue.svg)
 
-Sistema para detectar **baches y grietas** en fotos y videos de carreteras, estimar un **índice de severidad** y llevar el **seguimiento por tramo** a lo largo del tiempo. Incluye una aplicación web, un modo de video con los daños marcados y una app Android que usa el modelo desde un PC en la misma red.
+Sistema para detectar **baches y grietas** en fotos y videos de carreteras, estimar un **índice de severidad** y llevar el **seguimiento por tramo** a lo largo del tiempo. Incluye una aplicación web, un modo de video con los daños marcados y una app Android que usa el modelo desde un PC en la misma red y puede grabar recorridos con GPS mostrando las detecciones en vivo.
 
 > **Estado:** proyecto académico / prototipo. El modelo se evaluó solo con RDD2022 y **no se ha validado con carreteras de Ecuador**. Los resultados deben verificarse visualmente.
 
@@ -39,6 +39,8 @@ Sistema para detectar **baches y grietas** en fotos y videos de carreteras, esti
 | Seguimiento por tramo | Guarda capturas en PostgreSQL, compara fechas y muestra una tendencia indicativa. |
 | Sensibilidad | Perfil **Normal** (menos falsas alarmas) o **Sensible** (detecta más, calibrado con datos). |
 | Descargas | ZIP con informe HTML, JSON, CSV e imágenes marcadas. |
+| Recorrido con GPS (app) | Pantalla de grabación propia que registra el video y la ruta GPS a la vez, en vertical u horizontal, y al terminar los analiza con cada daño ubicado en el mapa. |
+| Análisis en vivo (app) | Durante la grabación envía ≈ 1 fotograma por segundo al PC, dibuja las cajas y muestra un **conteo estimado** de daños distintos. Ese conteo se guarda y se compara con el del análisis completo. |
 | Móvil | Foto y video desde Android, con informe PDF y video marcado. Puede guardar en el servidor (tramo, fecha y ubicación a elección), elegir el máximo de fotogramas (250–6000) y consultar los seguimientos. |
 
 **Clases:** `longitudinal_crack`, `transverse_crack`, `alligator_crack`, `pothole`.
@@ -174,6 +176,19 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 Luego abre la carpeta `android/` con Android Studio y ejecuta la app. Pasos completos (firewall, IP, clave de acceso, generación del APK y problemas frecuentes) en **[README_MOVIL.md](README_MOVIL.md)**.
 
+### Recorrido con GPS y análisis en vivo
+
+1. En la pantalla principal de la app pulsa **🛣 Recorrido con GPS** (deja marcada la casilla *Ver detecciones en vivo* si quieres ver las cajas mientras grabas).
+2. Concede los permisos de cámara y ubicación, espera a que indique «GPS: ✓» y pulsa **● Iniciar grabación**. Elige antes la orientación (vertical u horizontal): al empezar a grabar queda bloqueada.
+3. Pulsa **■ Detener y analizar**. La app carga el video, la ruta GPS y la hora exacta de inicio; elige las opciones (por ejemplo *Guardar en el servidor* y el tramo) y pulsa **Analizar**.
+4. Al terminar verás los daños marcados y, si usaste el análisis en vivo, una tabla que compara el conteo **en vivo** con el del **análisis completo**. Si guardaste en el servidor, la comparación también aparece en la versión web y en el informe descargable.
+
+Notas:
+- El análisis en vivo necesita que el celular y el PC estén en la misma red (en un auto: PC dentro del vehículo y el celular conectado a su red). Sin conexión, la grabación continúa y el análisis completo se hace al terminar.
+- Duración máxima de una grabación: 15 minutos. El video se graba sin audio.
+- El conteo en vivo es una **estimación** con una regla sencilla para no repetir un mismo daño (no validada); sirve de orientación y se compara con el análisis completo.
+- Probado en un Samsung Galaxy A02s; otros modelos pueden comportarse distinto.
+
 ## Configuración
 
 Todas las opciones están en `.env` (plantilla en `.env.example`):
@@ -199,7 +214,7 @@ $env:TEST_DATABASE_URL="postgresql+psycopg://postgres:TU_PASSWORD@localhost:5432
 pytest -q
 ```
 
-La suite (53 pruebas) se ejecuta automáticamente en cada *push* con GitHub Actions (`.github/workflows/ci.yml`) y cubre severidad, tramos, subida, EXIF, validaciones, perfiles de sensibilidad, migración de esquema, modo «solo analizar», video, video marcado, conteo y descarte de daños, GPX y acceso con clave.
+La suite (59 pruebas) se ejecuta automáticamente en cada *push* con GitHub Actions (`.github/workflows/ci.yml`) y cubre severidad, tramos, subida, EXIF, validaciones, perfiles de sensibilidad, migración de esquema, modo «solo analizar», video, video marcado, conteo y descarte de daños, GPX, conteo en vivo, análisis en vivo y acceso con clave.
 
 ## Estructura del repositorio
 
@@ -236,7 +251,7 @@ Bandas: < 15 Bueno · < 35 Regular · < 60 Malo · ≥ 60 Muy malo.
 
 - El modelo se evaluó solo con RDD2022; **no se ha probado con fotos de Ecuador**. Puede dar falsas alarmas y omitir daños.
 - El conteo de daños distintos en video es una **estimación** por seguimiento simple: puede unir dos daños cercanos o partir uno en dos.
-- El video marcado no es en tiempo real y sale sin audio.
+- El video marcado se genera al terminar el análisis y sale sin audio. El análisis en vivo de la app es aproximado (≈ 1 fotograma por segundo, depende de la red y del PC) y su conteo no está validado.
 - La ruta GPX solo funciona si el reloj del video y el del GPX coinciden.
 - **Sin `APP_TOKEN` no hay autenticación.** Usa `--host 127.0.0.1` para uso local. Con `--host 0.0.0.0` (app móvil) la conexión es HTTP sin cifrar: úsala solo en una red de confianza y con `APP_TOKEN`.
 - Copias de seguridad: `pg_dump` y la carpeta `storage/` (la base guarda solo las rutas).
