@@ -293,6 +293,7 @@ $("#btn-analizar").onclick = async () => {
   if (guardar) {
     fd.append("tramo_id", tr.id);
     const n = $("#o-notas").value.trim(); if (n) fd.append("notas", n);
+    if (esVideo && vivoApp) fd.append("conteo_vivo", JSON.stringify(vivoApp));
     try {
       if (radio("fch") === "manual") {
         if (!$("#o-fecha").value) throw new Error("Elige la fecha y hora");
@@ -413,7 +414,7 @@ function conteoVivo() {
 
 async function mostrarVideo(res, tr) {
   const m = res.resumen;
-  R = { tipo: "video", res, m, tramo: tr ? tr.nombre : null, hall: (res.hallazgos || []).map((h) => ({ ...h })) };
+  R = { tipo: "video", res, m, tramo: tr ? tr.nombre : null, hall: (res.hallazgos || []).map((h) => ({ ...h })), vivo: m.conteo_vivo || vivoApp || null };
   let av = "";
   if (m.limite_aplicado) av += `<div class="warn">Para no tardar demasiado se analizó menos detalle del pedido (1 de cada ${m.cada_n || "…"} fotogramas / intervalo ${m.intervalo_s} s).</div>`;
   if (res.hallazgos_truncado) av += '<div class="warn">Había demasiados daños distintos: se muestran solo los primeros.</div>';
@@ -462,7 +463,8 @@ async function mostrarVideo(res, tr) {
 function pintarHall() {
   const c = conteoVivo(); const tot = Object.values(c).reduce((a, b) => a + b, 0);
   $("#tot").textContent = tot; $("#cont").innerHTML = chips(c);
-  if (vivoApp && R && R.tipo === "video") {
+  const vivoApp = R && R.vivo;
+  if (vivoApp && R.tipo === "video") {
     const ks = ["pothole", "alligator_crack", "transverse_crack", "longitudinal_crack"];
     const tv = ks.reduce((a, k) => a + (vivoApp[k] || 0), 0);
     $("#cont").insertAdjacentHTML("beforeend",
@@ -659,7 +661,7 @@ async function verTramo(id) {
 async function abrirItem(it, t) {
   try {
     toast("Abriendo…");
-    limpiarResultado(); desdeHist = true; archivo = null;
+    limpiarResultado(); desdeHist = true; archivo = null; vivoApp = null;
     if (it.tipo === "foto") {
       const c = await leer(await fetch("/api/capturas/" + it.id, { cache: "no-store" }));
       mostrarFoto(capturaAFoto(c, { nombre: t.nombre }));

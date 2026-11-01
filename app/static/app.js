@@ -13,7 +13,7 @@ const CLASES = {
 const CAL_CLASS = { "Bueno": "b-Bueno", "Regular": "b-Regular", "Malo": "b-Malo", "Muy malo": "b-Muy" };
 const CAL_COLOR = { "Bueno": "#16a34a", "Regular": "#ca8a04", "Malo": "#ea580c", "Muy malo": "#dc2626" };
 const ORIGEN = { exif: "EXIF de la foto", manual: "ingresada a mano", subida: "momento de la subida" };
-const VIEWS = { panel: "Panel", analizar: "Analizar fotos y videos", seguimiento: "Seguimiento", tramos: "Tramos" };
+const VIEWS = { panel: "Panel", analizar: "Analizar fotos", seguimiento: "Seguimiento", tramos: "Tramos" };
 
 const nombreClase = (k) => CLASES[k]?.n ?? k;
 const badge = (cal) => `<span class="badge ${CAL_CLASS[cal] || ""}">${esc(cal)}</span>`;
@@ -518,11 +518,23 @@ function montarHallazgos(cont, res) {
     <div class="hgrid">${hs.length ? hs.map((h, i) => `<figure class="hc" data-i="${i}"><button type="button" class="hx" title="Descartar este daño">✕</button>
       <img loading="lazy" src="${esc(h.imagen)}" alt="${esc(nombreClase(h.clase))}" title="Ir a este momento del video">
       <figcaption><span class="chip"><i style="background:${CLASES[h.clase]?.c || "#888"}"></i>${esc(nombreClase(h.clase))}</span> <b>${fmtT(h.t_ini)}</b>${linkLoc(h)}
-        <small>visto en ${h.n_apariciones} análisis · confianza ${(h.conf_max * 100).toFixed(0)}%</small></figcaption></figure>`).join("") : '<p class="hint">No se encontró ningún daño que se repita entre fotogramas.</p>'}</div></details>`;
+        <small>visto en ${h.n_apariciones} análisis · confianza ${(h.conf_max * 100).toFixed(0)}%</small></figcaption></figure>`).join("") : '<p class="hint">No se encontró ningún daño que se repita entre fotogramas.</p>'}</div></details><div data-vivo></div>`;
+  const vivo = res.resumen?.conteo_vivo;
+  const KS = ["pothole", "alligator_crack", "transverse_crack", "longitudinal_crack"];
+  const pintarVivo = (c) => {
+    const bv = $("[data-vivo]", box); if (!bv || !vivo) return;
+    const tv = KS.reduce((a, k) => a + (vivo[k] || 0), 0), tc = KS.reduce((a, k) => a + (c[k] || 0), 0);
+    bv.innerHTML = `<div class="note" style="margin-top:10px"><b>Conteo en vivo (app móvil) frente al análisis completo</b>
+      <table style="margin-top:6px;border-collapse:collapse;font-size:.9em"><thead><tr><th style="text-align:left;padding:2px 14px 2px 0">Clase</th><th style="padding:2px 14px">En vivo</th><th style="padding:2px 14px">Análisis completo</th></tr></thead><tbody>` +
+      KS.map((k) => `<tr><td style="padding:2px 14px 2px 0"><span class="chip"><i style="background:${CLASES[k]?.c || "#888"}"></i>${esc(nombreClase(k))}</span></td><td style="text-align:center">${vivo[k] || 0}</td><td style="text-align:center">${c[k] || 0}</td></tr>`).join("") +
+      `<tr><td style="padding:2px 14px 2px 0"><b>Total</b></td><td style="text-align:center"><b>${tv}</b></td><td style="text-align:center"><b>${tc}</b></td></tr></tbody></table>
+      <small class="hint">El conteo en vivo se estimó durante la grabación; el del análisis completo descuenta los daños que descartaste. Ninguno es una cuenta exacta.</small></div>`;
+  };
   const refrescar = () => {
     const c = {}; hs.forEach((h) => { if (!h.descartado) c[h.clase] = (c[h.clase] || 0) + 1; });
     $("[data-total]", box).textContent = hs.filter((h) => !h.descartado).length;
     $("[data-chips]", box).innerHTML = Object.entries(c).map(([k, n]) => `<span class="chip"><i style="background:${CLASES[k]?.c || "#888"}"></i>${esc(nombreClase(k))}: <b>${n}</b></span>`).join("");
+    pintarVivo(c);
     const kb = $("[data-kpi-baches]", cont); if (kb) kb.textContent = baches(res);
     hs.forEach((h, i) => $(`.hc[data-i="${i}"]`, box)?.classList.toggle("off", !!h.descartado));
     cont._mapa?.();

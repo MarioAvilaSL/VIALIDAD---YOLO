@@ -204,7 +204,8 @@ CREATE TABLE public.videos (
     tiempo_proceso_s double precision NOT NULL,
     notas text,
     creado_en timestamp with time zone DEFAULT now() NOT NULL,
-    ruta_gps text
+    ruta_gps text,
+    conteo_vivo text
 );
 
 

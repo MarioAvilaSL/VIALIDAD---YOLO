@@ -29,6 +29,7 @@ def ensure_schema() -> None:
             "cada_n INTEGER",
             "ruta_anotado VARCHAR(255)",
             "ruta_gps TEXT",
+            "conteo_vivo TEXT",
         ],
         "video_frames": ["lat DOUBLE PRECISION", "lon DOUBLE PRECISION"],
     }

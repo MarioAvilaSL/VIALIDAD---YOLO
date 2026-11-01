@@ -81,8 +81,10 @@ def analizar(
     tramo_id: int | None = Form(None),
     fecha_inicio: str | None = Form(None),
     notas: str | None = Form(None, max_length=2000),
+    conteo_vivo: str | None = Form(None, max_length=500),
     db: Session = Depends(get_db),
 ):
+    vivo_json = _validar_conteo_vivo(conteo_vivo)
     nombre = (file.filename or "video")[-255:]
     ext = Path(nombre).suffix.lower()
     if ext not in EXTS:
@@ -135,7 +137,7 @@ def analizar(
                 hall.append(_hall_dict(h, k, f"/api/videos/jobs/{job.id}/hallazgo/{k}.jpg", False))
             return _resultado_vivo(res, nombre, False, None, [data_url_bytes(j) for _, j in res.mejores], url, hall)
         return _persistir(res, nombre, tramo_id, inicio or inicio_ahora, "manual" if inicio else "subida",
-                          sensibilidad, notas, job)
+                          sensibilidad, notas, job, vivo_json)
 
     job = jobs.lanzar(trabajo)
     return {"job_id": job.id}
@@ -152,7 +154,21 @@ def data_url_bytes(jpg: bytes) -> str:
     return "data:image/jpeg;base64," + base64.b64encode(jpg).decode()
 
 
-def _persistir(res, archivo, tramo_id, inicio, origen, sensibilidad, notas, job=None) -> dict:
+def _validar_conteo_vivo(txt: str | None) -> str | None:
+    """Conteo estimado en vivo que envía la app móvil: {clase: entero}. Se descarta lo que no sea válido."""
+    if not txt:
+        return None
+    try:
+        d = json.loads(txt)
+        claves = ("pothole", "alligator_crack", "transverse_crack", "longitudinal_crack")
+        if not isinstance(d, dict):
+            raise ValueError
+        return json.dumps({k: int(d.get(k, 0)) for k in claves if 0 <= int(d.get(k, 0)) <= 100000})
+    except (ValueError, TypeError):
+        raise HTTPException(422, "conteo_vivo no es válido.")
+
+
+def _persistir(res, archivo, tramo_id, inicio, origen, sensibilidad, notas, job=None, conteo_vivo=None) -> dict:
     m = res.meta
     perfil = settings.perfil(sensibilidad)
     db = SessionLocal()
@@ -166,7 +182,7 @@ def _persistir(res, archivo, tramo_id, inicio, origen, sensibilidad, notas, job=
             perfil=sensibilidad, parametros=parametros_json(sensibilidad, perfil), modelo_version=detector.version,
             tiempo_proceso_s=m["tiempo_proceso_s"], notas=(notas or None),
             modo=m["modo"], cada_n=m.get("cada_n"),
-            ruta_gps=json.dumps(res.ruta) if res.ruta else None,
+            ruta_gps=json.dumps(res.ruta) if res.ruta else None, conteo_vivo=conteo_vivo,
         )
         db.add(v)
         db.flush()
@@ -248,12 +264,13 @@ def cancelar(job_id: str):
 def video_resumen(v: Video) -> dict:
     return {
         "id": v.id, "tramo_id": v.tramo_id, "tramo_nombre": v.tramo.nombre, "archivo": v.archivo_original,
-                "fecha_inicio": v.fecha_inicio.astimezone(TZ) if v.fecha_inicio else None, "origen_fecha": v.origen_fecha, "duracion_s": v.duracion_s, "fps": v.fps,
+        "fecha_inicio": v.fecha_inicio.astimezone(TZ) if v.fecha_inicio else None, "origen_fecha": v.origen_fecha, "duracion_s": v.duracion_s, "fps": v.fps,
         "ancho": v.ancho, "alto": v.alto, "intervalo_s": v.intervalo_s, "n_frames": v.n_frames,
         "indice_medio": v.indice_medio, "indice_max": v.indice_max, "pct_afectados": v.pct_afectados,
         "calificacion": v.calificacion, "perfil": v.perfil, "modelo_version": v.modelo_version,
         "tiempo_proceso_s": v.tiempo_proceso_s, "notas": v.notas,
         "modo": v.modo, "cada_n": v.cada_n,
+        "conteo_vivo": json.loads(v.conteo_vivo) if v.conteo_vivo else None,
         "video_url": f"/media/{v.ruta_anotado}" if v.ruta_anotado else None,
     }
 

@@ -84,6 +84,7 @@ async function descargarVideo(res, boton) {
         ["Duración", tmin(r.duracion_s)], ["Fotogramas analizados", r.n_frames], ["Sensibilidad", `${H(r.perfil)}`], ["Modelo", H(r.modelo_version)], ["Tiempo de proceso", `${r.tiempo_proceso_s} s`],
         ["Ruta GPS", res.ruta ? `Incluida (cubre ${r.gps_cubre_pct ?? "?"}% de los análisis) · ver ruta.geojson` : "Sin GPX"]])}
       ${r.modo === "anotado" ? `<h2>Daños distintos estimados</h2><p>${conteoTxt}</p><p class="n">Conteo estimado por seguimiento entre fotogramas: puede unir dos daños cercanos o separar uno en dos. Los daños descartados a mano no se cuentan (${hall.length - vivos.length} descartados). Detalle en danos.csv.</p><div class="g">${gDanos}</div>` : ""}
+      ${r.conteo_vivo ? `<h2>Conteo en vivo frente al análisis completo</h2><table><tr><th>Clase</th><th>En vivo</th><th>Análisis completo</th></tr>${["pothole", "alligator_crack", "transverse_crack", "longitudinal_crack"].map((k) => `<tr><td>${H(nombreClase(k))}</td><td>${r.conteo_vivo[k] || 0}</td><td>${cuenta[k] || 0}</td></tr>`).join("")}</table><p class="n">Ambos conteos son estimaciones; el de la app móvil se calculó durante la grabación.</p>` : ""}
       <h2>Fotogramas más críticos</h2><div class="g">${galeria || "<p>Ningún fotograma con daños.</p>"}</div>
       <p class="n">${H(NOTA)} Este informe no incluye el video; descárgalo aparte si lo necesitas.</p>`));
     bajar(await zip.generateAsync({ type: "blob" }), `analisis_video_${n}_${stamp()}.zip`);

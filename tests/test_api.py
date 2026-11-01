@@ -224,4 +224,15 @@ def test_pagina_movil_tiene_recorrido_con_gps(client):
     js = client.get("/m/m.js").text
     assert "btn-recorrido" in html
     assert "grabarRecorrido" in js and "onRecorrido" in js and "/__local/" not in html
-    assert "c-vivo" in html and "vivoApp" in js
+    assert "c-vivo" in html and "vivoApp" in js and "conteo_vivo" in js
+
+
+def test_pagina_movil_se_revalida(client):
+    assert client.get("/m/m.js").headers.get("cache-control") == "no-cache"
+    assert client.get("/m/").headers.get("cache-control") == "no-cache"
+
+
+def test_web_muestra_conteo_en_vivo(client):
+    js = client.get("/app.js").text
+    assert "conteo_vivo" in js and "data-vivo" in js
+    assert "conteo_vivo" in client.get("/descargas.js").text

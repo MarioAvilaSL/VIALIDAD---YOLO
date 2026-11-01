@@ -31,6 +31,17 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Vialidad · Detección de daños viales", version="0.2.0", lifespan=lifespan)
 security.instalar(app)
+
+
+@app.middleware("http")
+async def sin_cache_en_movil(request, call_next):
+    """La página móvil se revalida siempre: así la app del celular no se queda con un m.js viejo tras actualizar."""
+    resp = await call_next(request)
+    if request.url.path.startswith("/m/") or request.url.path == "/m":
+        resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
 app.include_router(resumen.router)
 app.include_router(tramos.router)
 app.include_router(capturas.router)
