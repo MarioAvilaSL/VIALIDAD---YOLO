@@ -104,6 +104,27 @@ La carpeta [`entrenamiento/`](entrenamiento/) reúne la configuración (`args.ya
   <img src="entrenamiento/graficas/confusion_matrix_normalized.png" alt="Matriz de confusión normalizada" width="55%">
 </p>
 
+### Evidencia de YOLO26n y YOLO26m
+
+Se entrenaron con el mismo procedimiento, las mismas particiones y el mismo presupuesto de tiempo (4 h) que YOLO26s, por eso completaron 55 y 24 épocas (YOLO26s, 47). Los cuadernos ejecutados, con todas sus salidas, y las cifras por época están en [`entrenamiento/yolo26n/`](entrenamiento/yolo26n/) y [`entrenamiento/yolo26m/`](entrenamiento/yolo26m/).
+
+<details>
+<summary>Curvas de validación por época (YOLO26n y YOLO26m)</summary>
+
+<p align="center"><img src="entrenamiento/yolo26n/curva_validacion.png" alt="Curvas de validación de YOLO26n" width="90%"></p>
+<p align="center"><img src="entrenamiento/yolo26m/curva_validacion.png" alt="Curvas de validación de YOLO26m" width="90%"></p>
+
+Reconstruidas del registro de salida de los cuadernos ejecutados (validación de 2100 imágenes por época).
+</details>
+
+<details>
+<summary>Curvas precisión–recall de los tres modelos (validación)</summary>
+
+<p align="center"><img src="entrenamiento/comparacion/curvas_precision_recall_tres_modelos.png" alt="Curvas precisión-recall por clase de YOLO26s, YOLO26m y YOLO26n" width="100%"></p>
+
+Más arriba y a la derecha es mejor. El punto negro es el umbral normal (0,25) y la estrella el umbral sensible de cada modelo. En la leyenda de la imagen, «actual» es YOLO26s, «experimento» YOLO26m y «nuevo» YOLO26n.
+</details>
+
 ## Arquitectura
 
 ```

@@ -1,6 +1,6 @@
 # Experimento: YOLO26m frente a YOLO26s
 
-> Rama `experimental`. Es un experimento: **no cambia el modelo de la aplicación** hasta que los resultados lo justifiquen.
+> Experimento con resultados medidos (abajo). La aplicación ofrece YOLO26m como opción «más precisa»; el modelo predeterminado sigue siendo YOLO26s.
 
 ## Qué responde
 
@@ -47,9 +47,27 @@ PERFIL_SENSIBLE=<la línea que imprime el cuaderno para YOLO26m>
 
 **Los umbrales del perfil sensible de YOLO26s no sirven para YOLO26m**: cada modelo necesita los suyos. Reinicia el servidor después de cambiar el `.env`. El análisis en vivo envía ~1 fotograma por segundo: si YOLO26m tarda cerca de 1 s por imagen en tu CPU, no podrá seguir el ritmo.
 
+## Resultados medidos
+
+Todo en RDD2022. Validación y prueba: 2100 imágenes cada una; la prueba se evaluó una sola vez, con umbrales elegidos en validación.
+
+| | YOLO26s | YOLO26m |
+|---|---|---|
+| Épocas en 4 h (mejor época) | 47 (36) | 24 (24) |
+| mAP50-95, validación / prueba | 0,337 / 0,353 | 0,341 / 0,362 |
+| Recall medio sensible, validación / prueba | 0,684 / 0,695 | 0,698 / 0,714 |
+| Precisión media sensible, prueba | 0,500 | 0,506 |
+| CPU del autor, ms por imagen (rango de 3 corridas) | 108–120 | 239–281 |
+| `best.pt` | 20,3 MB | 44,0 MB |
+
+Umbrales del perfil sensible de YOLO26m (grieta longitudinal, transversal, piel de cocodrilo, bache): 0,15 / 0,19 / 0,11 / 0,15.
+
+**Lectura:** YOLO26m mejora poco (+0,004 de mAP50-95 en validación, +0,009 en prueba) y es 2,1 a 2,3 veces más lento en CPU. La diferencia es menor que la que hay entre validación y prueba de un mismo modelo y no se midió la variación entre semillas, así que no es concluyente. Terminó en su mejor época (la 24): con más tiempo podría haber mejorado, pero no se puede afirmar.
+
+**Evidencia en esta carpeta:** `entrenar_y_comparar_yolo26m_ejecutado.ipynb` (cuaderno con todas sus salidas), `curva_validacion.csv` y `curva_validacion.png` (reconstruidos del registro de salida del cuaderno), y `velocidad_cpu.csv` si lo añadiste. Comparación de los tres modelos: `../yolo26n/README.md`.
+
 ## Límites
 
 - Todo se mide sobre RDD2022 (Japón, India, Chequia, EE. UU., China-moto), **no sobre carreteras de Ecuador**.
 - Los ms del cuaderno son de la GPU de Colab; la velocidad que importa es la que da `medir_velocidad_cpu.py` en tu equipo.
-- Los resultados de este experimento aún no existen: este README describe el método, no una conclusión.
 - Los modelos de Ultralytics se distribuyen bajo AGPL-3.0; revisa las implicaciones si ofreces el sistema como servicio.
