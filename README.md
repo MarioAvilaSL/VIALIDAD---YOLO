@@ -4,7 +4,7 @@
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-green.svg)](LICENSE)
 ![Python 3.11–3.13](https://img.shields.io/badge/python-3.11%E2%80%933.13-blue.svg)
 
-Sistema para detectar **baches y grietas** en fotos y videos de carreteras, estimar un **índice de severidad** y llevar el **seguimiento por tramo** a lo largo del tiempo. Incluye una aplicación web, un modo de video con los daños marcados y una app Android que usa el modelo desde un PC en la misma red.
+Sistema para detectar **baches y grietas** en fotos y videos de carreteras, estimar un **índice de severidad** y llevar el **seguimiento por tramo** a lo largo del tiempo. Incluye una aplicación web, un modo de video con los daños marcados y una app Android que usa el modelo desde un PC en la misma red y puede grabar recorridos con GPS mostrando las detecciones en vivo.
 
 > **Estado:** proyecto académico / prototipo. El modelo se evaluó solo con RDD2022 y **no se ha validado con carreteras de Ecuador**. Los resultados deben verificarse visualmente.
 
@@ -39,6 +39,8 @@ Sistema para detectar **baches y grietas** en fotos y videos de carreteras, esti
 | Seguimiento por tramo | Guarda capturas en PostgreSQL, compara fechas y muestra una tendencia indicativa. |
 | Sensibilidad | Perfil **Normal** (menos falsas alarmas) o **Sensible** (detecta más, calibrado con datos). |
 | Descargas | ZIP con informe HTML, JSON, CSV e imágenes marcadas. |
+| Recorrido con GPS (app) | Pantalla de grabación propia que registra el video y la ruta GPS a la vez, en vertical u horizontal, y al terminar los analiza con cada daño ubicado en el mapa. |
+| Análisis en vivo (app) | Durante la grabación envía ≈ 1 fotograma por segundo al PC, dibuja las cajas y muestra un **conteo estimado** de daños distintos. Ese conteo se guarda y se compara con el del análisis completo. |
 | Móvil | Foto y video desde Android, con informe PDF y video marcado. Puede guardar en el servidor (tramo, fecha y ubicación a elección), elegir el máximo de fotogramas (250–6000) y consultar los seguimientos. |
 
 **Clases:** `longitudinal_crack`, `transverse_crack`, `alligator_crack`, `pothole`.
@@ -113,6 +115,22 @@ La carpeta [`entrenamiento/`](entrenamiento/) reúne la configuración (`args.ya
 
 - **Backend:** FastAPI, SQLAlchemy 2, PostgreSQL (psycopg 3).
 - **Inferencia:** Ultralytics, OpenCV, Pillow. Video anotado con `imageio-ffmpeg` (sin instalar ffmpeg aparte).
+### Tres modelos a elegir
+
+La web y la app móvil permiten elegir entre tres modelos entrenados con el mismo procedimiento y las mismas particiones. Todas las cifras fueron medidas; **ninguna es de carreteras de Ecuador**.
+
+| | YOLO26s (predeterminado) | YOLO26n (rápido) | YOLO26m (más preciso) |
+|---|---|---|---|
+| mAP50-95, validación | 0,337 | 0,322 | 0,341 |
+| mAP50-95, prueba | 0,353 | 0,346 | 0,362 |
+| Recall medio sensible, prueba | 0,695 | 0,666 | 0,714 |
+| ms por imagen en CPU* | 108–120 | 58–71 | 239–281 |
+| Tamaño de `best.pt` | 20,3 MB | 5,5 MB | 44,0 MB |
+
+\* Rango de 3 corridas de `entrenamiento/yolo26m/medir_velocidad_cpu.py` (27 fotos a 640 px) en el computador del autor, sin GPU. En otro equipo serán otras cifras. Las diferencias entre s y m son menores que la variación entre validación y prueba de un mismo modelo y no se midió la variación entre semillas; YOLO26n pierde recall de forma consistente, sobre todo en baches. Cada modelo usa sus propios umbrales del perfil sensible. Detalle en `entrenamiento/yolo26m/` y `entrenamiento/yolo26n/`.
+
+Copia los pesos a `models/` como `best.pt` (s), `best_yolo26n.pt` y `best_yolo26m.pt`; si falta un archivo, esa opción aparece desactivada. La API acepta el campo opcional `modelo` en `/api/analizar`, `/api/analizar_vivo`, `/api/capturas` y `/api/videos`; `GET /api/modelos` lista las opciones y `POST /api/modelos/{id}/cargar` precarga una. Cada resultado guardado recuerda con qué modelo se obtuvo, y el seguimiento avisa si un tramo mezcla modelos (sus índices no son directamente comparables). Las cifras mostradas en la interfaz están en `app/modelos.py`.
+
 - **Interfaz web:** HTML + CSS + JavaScript sin proceso de build (Leaflet, Chart.js, JSZip y jsPDF incluidos).
 - **Android:** envoltorio WebView en Java, sin dependencias externas.
 
@@ -120,7 +138,7 @@ La carpeta [`entrenamiento/`](entrenamiento/) reúne la configuración (`args.ya
 
 - Windows (probado), Python **3.11–3.13**
 - PostgreSQL con una base de datos vacía llamada `vialidad`
-- El modelo entrenado `models/best.pt`
+- El modelo entrenado `models/best.pt` (y, opcionalmente, `best_yolo26n.pt` y `best_yolo26m.pt`)
 - Para la app móvil: Android Studio y un teléfono con Android 10 o superior
 
 ## Instalación
@@ -174,6 +192,19 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 Luego abre la carpeta `android/` con Android Studio y ejecuta la app. Pasos completos (firewall, IP, clave de acceso, generación del APK y problemas frecuentes) en **[README_MOVIL.md](README_MOVIL.md)**.
 
+### Recorrido con GPS y análisis en vivo
+
+1. En la pantalla principal de la app pulsa **🛣 Recorrido con GPS** (deja marcada la casilla *Ver detecciones en vivo* si quieres ver las cajas mientras grabas).
+2. Concede los permisos de cámara y ubicación, espera a que indique «GPS: ✓» y pulsa **● Iniciar grabación**. Elige antes la orientación (vertical u horizontal): al empezar a grabar queda bloqueada.
+3. Pulsa **■ Detener y analizar**. La app carga el video, la ruta GPS y la hora exacta de inicio; elige las opciones (por ejemplo *Guardar en el servidor* y el tramo) y pulsa **Analizar**.
+4. Al terminar verás los daños marcados y, si usaste el análisis en vivo, una tabla que compara el conteo **en vivo** con el del **análisis completo**. Si guardaste en el servidor, la comparación también aparece en la versión web y en el informe descargable.
+
+Notas:
+- El análisis en vivo necesita que el celular y el PC estén en la misma red (en un auto: PC dentro del vehículo y el celular conectado a su red). Sin conexión, la grabación continúa y el análisis completo se hace al terminar.
+- Duración máxima de una grabación: 15 minutos. El video se graba sin audio.
+- El conteo en vivo es una **estimación** con una regla sencilla para no repetir un mismo daño (no validada); sirve de orientación y se compara con el análisis completo.
+- Probado en un Samsung Galaxy A02s; otros modelos pueden comportarse distinto.
+
 ## Configuración
 
 Todas las opciones están en `.env` (plantilla en `.env.example`):
@@ -186,6 +217,10 @@ Todas las opciones están en `.env` (plantilla en `.env.example`):
 | `MAX_UPLOAD_MB` / `MAX_VIDEO_MB` | Tamaño máximo de foto / video | 15 / 500 |
 | `VIDEO_MAX_FRAMES` | Límite de fotogramas por video | 300 (tope 6000) |
 | `PERFIL_SENSIBLE` | Perfil sensible (solo si repites la calibración) | calibrado |
+| `MODELO_PREDETERMINADO` | Modelo que se usa si el cliente no elige (`yolo26s`, `yolo26n` o `yolo26m`) | `yolo26s` |
+| `MODELOS_HABILITADOS` | Modelos que se ofrecen, separados por coma | `yolo26s,yolo26n,yolo26m` |
+| `MODEL_PATH_YOLO26N` / `MODEL_PATH_YOLO26M` | Archivos de los modelos opcionales | `models/best_yolo26n.pt` / `models/best_yolo26m.pt` |
+| `PERFIL_SENSIBLE_YOLO26N` / `PERFIL_SENSIBLE_YOLO26M` | Umbrales sensibles de cada modelo (calibrados en validación; no se comparten entre modelos) | calibrados |
 | `APP_TOKEN` | Clave de acceso opcional para `/api` y `/media` | vacío (sin clave) |
 | `TIMEZONE` | Zona horaria | `America/Guayaquil` |
 
@@ -199,7 +234,7 @@ $env:TEST_DATABASE_URL="postgresql+psycopg://postgres:TU_PASSWORD@localhost:5432
 pytest -q
 ```
 
-La suite (53 pruebas) se ejecuta automáticamente en cada *push* con GitHub Actions (`.github/workflows/ci.yml`) y cubre severidad, tramos, subida, EXIF, validaciones, perfiles de sensibilidad, migración de esquema, modo «solo analizar», video, video marcado, conteo y descarte de daños, GPX y acceso con clave.
+La suite (68 pruebas) se ejecuta automáticamente en cada *push* con GitHub Actions (`.github/workflows/ci.yml`) y cubre severidad, tramos, subida, EXIF, validaciones, perfiles de sensibilidad, migración de esquema, modo «solo analizar», video, video marcado, conteo y descarte de daños, GPX, conteo en vivo, análisis en vivo, selector de modelos y acceso con clave.
 
 ## Estructura del repositorio
 
@@ -236,7 +271,7 @@ Bandas: < 15 Bueno · < 35 Regular · < 60 Malo · ≥ 60 Muy malo.
 
 - El modelo se evaluó solo con RDD2022; **no se ha probado con fotos de Ecuador**. Puede dar falsas alarmas y omitir daños.
 - El conteo de daños distintos en video es una **estimación** por seguimiento simple: puede unir dos daños cercanos o partir uno en dos.
-- El video marcado no es en tiempo real y sale sin audio.
+- El video marcado se genera al terminar el análisis y sale sin audio. El análisis en vivo de la app es aproximado (≈ 1 fotograma por segundo, depende de la red y del PC) y su conteo no está validado.
 - La ruta GPX solo funciona si el reloj del video y el del GPX coinciden.
 - **Sin `APP_TOKEN` no hay autenticación.** Usa `--host 127.0.0.1` para uso local. Con `--host 0.0.0.0` (app móvil) la conexión es HTTP sin cifrar: úsala solo en una red de confianza y con `APP_TOKEN`.
 - Copias de seguridad: `pg_dump` y la carpeta `storage/` (la base guarda solo las rutas).

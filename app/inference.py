@@ -3,6 +3,7 @@ import hashlib
 import threading
 import time
 from dataclasses import dataclass
+from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -38,10 +39,17 @@ class ModelNotAvailable(RuntimeError):
     pass
 
 
+# Un solo bloqueo para TODOS los modelos: la CPU es el recurso escaso, así que solo corre una inferencia
+# (o una carga de modelo) a la vez aunque haya varios modelos disponibles.
+_LOCK_CPU = threading.Lock()
+
+
 class Detector:
-    def __init__(self) -> None:
+    def __init__(self, path: Path | None = None, id: str = "yolo26s") -> None:
+        self.path = path   # None = usar MODEL_FILE (así las pruebas pueden cambiarlo)
+        self.id = id
         self._model = None
-        self._lock = threading.Lock()  # una inferencia a la vez (CPU)
+        self._lock = _LOCK_CPU
         self.version = "sin-cargar"
         self.ms_tipico: float | None = None  # mediana medida al arrancar (solo orientativa)
 
@@ -49,21 +57,25 @@ class Detector:
     def loaded(self) -> bool:
         return self._model is not None
 
+    def archivo(self) -> Path:
+        return self.path if self.path is not None else MODEL_FILE
+
     def load(self) -> None:
         if self._model is not None:
             return
         with self._lock:
             if self._model is not None:
                 return
-            if not MODEL_FILE.exists():
-                raise ModelNotAvailable(f"No existe el modelo en {MODEL_FILE}. Copia best.pt en la carpeta models/.")
+            archivo = self.archivo()
+            if not archivo.exists():
+                raise ModelNotAvailable(f"No existe el modelo en {archivo}. Copia el archivo .pt en la carpeta models/.")
             from ultralytics import YOLO  # import tardío: acelera el arranque de las pruebas
 
             h = hashlib.sha256()
-            with open(MODEL_FILE, "rb") as f:
+            with open(archivo, "rb") as f:
                 for chunk in iter(lambda: f.read(1 << 20), b""):
                     h.update(chunk)
-            self._model = YOLO(str(MODEL_FILE))
+            self._model = YOLO(str(archivo))
             # Calentamiento: la primera inferencia es lenta; así no la paga el primer usuario.
             blanco = Image.new("RGB", (1280, 720), (120, 120, 120))
             kw = dict(imgsz=640, conf=0.25, augment=False, device=settings.device, verbose=False)
@@ -74,7 +86,7 @@ class Detector:
                 self._model.predict(blanco, **kw)
                 tiempos.append((time.perf_counter() - t0) * 1000.0)
             self.ms_tipico = round(sorted(tiempos)[1], 0)
-            self.version = f"{MODEL_FILE.name}@{h.hexdigest()[:12]}"
+            self.version = f"{archivo.name}@{h.hexdigest()[:12]}"
 
     def predict(self, img: Image.Image, perfil: Perfil | None = None) -> tuple[list[Det], float]:
         """Inferencia con el perfil dado. Siempre se pasan todos los parámetros explícitos

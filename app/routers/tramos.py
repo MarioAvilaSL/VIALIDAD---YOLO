@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from ..config import STORAGE, settings
 from ..db import get_db
+from ..modelos import registro
 from ..models import Captura, Tramo, Video
 from ..schemas import TramoIn, TramoOut
 from .common import borrar_archivos, to_out
@@ -89,9 +90,11 @@ def seguimiento(tramo_id: int, db: Session = Depends(get_db)):
 
     vids = db.scalars(select(Video).where(Video.tramo_id == tramo_id).order_by(Video.fecha_inicio)).all()
     perfiles = sorted({c.perfil for c in caps})
+    modelos = sorted({registro.nombre_por_version(c.modelo_version, c.parametros) or c.modelo_version for c in caps})
     return {
         "tramo": _tramo_out(db, t),
         "perfiles": perfiles,
+        "modelos": modelos,
         "videos": [{"id": v.id, "fecha": v.fecha_inicio.astimezone(TZ).date().isoformat(),
                     "fecha_inicio": v.fecha_inicio, "indice_medio": v.indice_medio, "indice_max": v.indice_max,
                     "pct_afectados": v.pct_afectados, "calificacion": v.calificacion, "perfil": v.perfil,

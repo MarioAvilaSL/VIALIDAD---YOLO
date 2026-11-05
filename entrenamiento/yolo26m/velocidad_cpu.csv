@@ -1,0 +1,4 @@
+modelo,n_mediciones,media_ms,mediana_ms,p95_ms,imagenes_por_s,preproceso_ms,inferencia_ms,postproceso_ms,veces_vs_primero
+best.pt,54,118.8,98.5,218.3,8.42,1.7,103.8,1.1,1.0
+best_yolo26m.pt,54,247.7,236.9,350.8,4.04,1.7,233.3,1.1,2.09
+best_yolo26n.pt,54,59.5,47.2,146.5,16.82,1.5,46.9,0.9,0.5

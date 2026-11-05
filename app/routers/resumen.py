@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session, selectinload
 
 from ..config import settings
 from ..db import get_db
-from ..inference import detector
+from ..inference import ModelNotAvailable, detector
+from ..modelos import registro
 from ..models import Captura, Deteccion, Tramo, Video
 from .common import to_out
 
@@ -21,6 +22,36 @@ def health(db: Session = Depends(get_db)):
     return {"db": db_ok, "modelo_cargado": detector.loaded, "modelo_version": detector.version}
 
 
+def _ficha(m) -> dict:
+    d = m.detector
+    return {
+        "id": m.id, "nombre": m.nombre, "etiqueta": m.etiqueta, "descripcion": m.descripcion,
+        "predeterminado": m.id == registro.predeterminado().id,
+        "disponible": m.archivo.exists(), "cargado": d.loaded,
+        "metricas": m.metricas,
+        "perfiles": {"normal": {"conf": settings.perfil_normal.conf},
+                     "sensible": {"conf": m.perfil_sensible.conf, "conf_clase": m.perfil_sensible.conf_clase}},
+    }
+
+
+@router.get("/modelos")
+def modelos():
+    """Modelos que el usuario puede elegir, con sus cifras medidas y si el archivo .pt está disponible."""
+    return {"predeterminado": registro.predeterminado().id, "modelos": [_ficha(m) for m in registro.lista()]}
+
+
+@router.post("/modelos/{id_}/cargar")
+def cargar_modelo(id_: str):
+    """Precarga el modelo en memoria (para que el primer análisis no espere)."""
+    from ..services import resolver_modelo
+    m = resolver_modelo(id_)
+    try:
+        m.detector.load()
+    except ModelNotAvailable as e:
+        raise HTTPException(503, str(e))
+    return _ficha(m)
+
+
 @router.get("/config")
 def config():
     """Límites y perfiles visibles para la interfaz (no incluye datos sensibles)."""
@@ -32,6 +63,10 @@ def config():
             "normal": {"conf": settings.perfil_normal.conf, "conf_clase": settings.perfil_normal.conf_clase},
             "sensible": {"conf": settings.perfil_sensible.conf, "conf_clase": settings.perfil_sensible.conf_clase},
         },
+        "modelo_predeterminado": registro.predeterminado().id,
+        "modelos": {m.id: {"normal": {"conf": settings.perfil_normal.conf, "conf_clase": settings.perfil_normal.conf_clase},
+                           "sensible": {"conf": m.perfil_sensible.conf, "conf_clase": m.perfil_sensible.conf_clase}}
+                    for m in registro.lista()},
     }
 
 

@@ -74,6 +74,7 @@ public class RecorridoActivity extends Activity implements TextureView.SurfaceTe
     public static final String EXTRA_ERROR = "error";
     public static final String EXTRA_SERVIDOR = "servidor";   // entrada: URL del servidor
     public static final String EXTRA_SENS = "sens";           // entrada: normal | sensible
+    public static final String EXTRA_MODELO = "modelo";       // entrada: id del modelo ("" = predeterminado)
     public static final String EXTRA_VIVO = "vivo";           // entrada: analizar en vivo
     public static final String EXTRA_CONTEO = "conteo_vivo";  // salida: JSON con el conteo estimado
 
@@ -198,6 +199,8 @@ public class RecorridoActivity extends Activity implements TextureView.SurfaceTe
         servidor = getIntent().getStringExtra(EXTRA_SERVIDOR);
         sens = getIntent().getStringExtra(EXTRA_SENS);
         if (sens == null) sens = "normal";
+        modelo = getIntent().getStringExtra(EXTRA_MODELO);
+        if (modelo == null || !modelo.matches("[a-z0-9_]{1,20}")) modelo = "";
         vivoPedido = getIntent().getBooleanExtra(EXTRA_VIVO, false) && servidor != null && !servidor.isEmpty();
         carpeta = new File(getCacheDir(), "recorridos");
         //noinspection ResultOfMethodCallIgnored
@@ -297,7 +300,7 @@ public class RecorridoActivity extends Activity implements TextureView.SurfaceTe
 
     /* ------------------------------------------------------------------ análisis en vivo (opcional) */
 
-    private String servidor, sens = "normal";
+    private String servidor, sens = "normal", modelo = "";
     private boolean vivoPedido = false, vivoActivo = false;
     private HandlerThread hiloVivo;
     private Handler hVivo;
@@ -404,6 +407,8 @@ public class RecorridoActivity extends Activity implements TextureView.SurfaceTe
         if (ck != null) c.setRequestProperty("Cookie", ck);
         try (OutputStream o = c.getOutputStream()) {
             o.write(("--" + b + "\r\nContent-Disposition: form-data; name=\"sensibilidad\"\r\n\r\n" + sens + "\r\n").getBytes(StandardCharsets.UTF_8));
+            if (!modelo.isEmpty())
+                o.write(("--" + b + "\r\nContent-Disposition: form-data; name=\"modelo\"\r\n\r\n" + modelo + "\r\n").getBytes(StandardCharsets.UTF_8));
             o.write(("--" + b + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"f.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n").getBytes(StandardCharsets.UTF_8));
             o.write(jpg);
             o.write(("\r\n--" + b + "--\r\n").getBytes(StandardCharsets.UTF_8));

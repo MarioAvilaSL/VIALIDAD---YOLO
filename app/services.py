@@ -10,7 +10,8 @@ from PIL import Image, ImageOps
 from . import severity
 from .config import Perfil, settings
 from .exif import read_exif
-from .inference import ModelNotAvailable, detector, draw
+from .inference import ModelNotAvailable, draw
+from .modelos import Modelo, ModeloDesconocido, registro
 
 Sensibilidad = Literal["normal", "sensible"]
 ALLOWED = {"JPEG", "PNG", "WEBP"}
@@ -57,18 +58,29 @@ def parse_fecha(s: str):
     return d if d.tzinfo else d.replace(tzinfo=ZoneInfo(settings.timezone))
 
 
-def parametros_json(nombre: str, perfil: Perfil) -> str:
+def resolver_modelo(id_: str | None) -> Modelo:
+    """Modelo pedido por el cliente (None o vacío = el predeterminado). 422 si no existe o está deshabilitado."""
+    try:
+        return registro.obtener(id_)
+    except ModeloDesconocido:
+        raise HTTPException(422, f"Modelo desconocido: {id_}. Opciones: {', '.join(registro.ids_habilitados())}.")
+
+
+def parametros_json(nombre: str, perfil: Perfil, modelo: Modelo | None = None) -> str:
+    modelo = modelo or registro.predeterminado()
     return json.dumps({
         "perfil": nombre, "conf": perfil.conf, "conf_clase": perfil.conf_clase,
-        "imgsz": perfil.imgsz, "augment": perfil.augment, "modelo": detector.version,
+        "imgsz": perfil.imgsz, "augment": perfil.augment, "modelo": modelo.detector.version,
+        "modelo_id": modelo.id,
     }, ensure_ascii=False)
 
 
-def analizar_imagen(img: Image.Image, nombre_perfil: str):
+def analizar_imagen(img: Image.Image, nombre_perfil: str, modelo: Modelo | None = None):
     """Corre el detector con el perfil y calcula el índice. Devuelve (dets, ms, indice, calif, perfil)."""
-    perfil = settings.perfil(nombre_perfil)
+    modelo = modelo or registro.predeterminado()
+    perfil = modelo.perfil(nombre_perfil)
     try:
-        dets, ms = detector.predict(img, perfil)
+        dets, ms = modelo.detector.predict(img, perfil)
     except ModelNotAvailable as e:
         raise HTTPException(503, str(e))
     indice, calif = severity.calcular((d.clase, d.area_frac) for d in dets)
@@ -84,4 +96,4 @@ def data_url(img: Image.Image, calidad: int = 85, lado_max: int | None = None) -
     return "data:image/jpeg;base64," + base64.b64encode(b.getvalue()).decode()
 
 
-__all__ = ["parse_fecha", "leer_subida", "abrir_imagen", "parametros_json", "analizar_imagen", "data_url", "draw", "Sensibilidad"]
+__all__ = ["parse_fecha", "leer_subida", "abrir_imagen", "parametros_json", "analizar_imagen", "resolver_modelo", "data_url", "draw", "Sensibilidad"]

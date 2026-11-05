@@ -8,10 +8,10 @@ from sqlalchemy.orm import Session, selectinload
 
 from ..config import STORAGE, settings
 from ..db import get_db
-from ..inference import detector, draw
+from ..inference import draw
 from ..models import Captura, Deteccion, Tramo
 from ..schemas import CapturaOut
-from ..services import Sensibilidad, abrir_imagen, analizar_imagen, leer_subida, parametros_json, parse_fecha
+from ..services import Sensibilidad, abrir_imagen, analizar_imagen, leer_subida, parametros_json, parse_fecha, resolver_modelo
 from .common import borrar_archivos, to_out
 
 router = APIRouter(prefix="/api/capturas", tags=["capturas"])
@@ -25,6 +25,7 @@ def crear(
     lon: float | None = Form(None, ge=-180, le=180),
     notas: str | None = Form(None, max_length=2000),
     sensibilidad: Sensibilidad = Form("normal"),
+    modelo: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
     if (lat is None) != (lon is None):
@@ -48,7 +49,8 @@ def crear(
     else:
         o_gps = None
 
-    dets, ms, indice, calif, perfil = analizar_imagen(img, sensibilidad)
+    mod = resolver_modelo(modelo)
+    dets, ms, indice, calif, perfil = analizar_imagen(img, sensibilidad, mod)
 
     # Archivos: nombres aleatorios (nunca el nombre original) en storage/capturas/AAAA-MM/
     sub = f"capturas/{fecha.astimezone(TZ):%Y-%m}"
@@ -63,8 +65,8 @@ def crear(
         tramo_id=tramo_id, archivo_original=nombre_orig, ruta_imagen=rel_img, ruta_anotada=rel_det,
         ancho=img.width, alto=img.height, fecha_captura=fecha, origen_fecha=o_fecha,
         lat=lat, lon=lon, origen_gps=o_gps, notas=(notas or None),
-        modelo_version=detector.version, conf_umbral=perfil.conf,
-        perfil=sensibilidad, parametros=parametros_json(sensibilidad, perfil),
+        modelo_version=mod.detector.version, conf_umbral=perfil.conf,
+        perfil=sensibilidad, parametros=parametros_json(sensibilidad, perfil, mod),
         indice_severidad=indice, calificacion=calif, n_detecciones=len(dets),
         tiempo_inferencia_ms=round(ms, 1),
     )

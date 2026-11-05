@@ -403,10 +403,15 @@ public class MainActivity extends Activity {
 
         /** Abre la pantalla de grabación de recorrido; el resultado vuelve en window.onRecorrido(obj). */
         @JavascriptInterface
-        public void grabarRecorrido(boolean vivo, String sensibilidad) {
+        public void grabarRecorrido(boolean vivo, String sensibilidad) { grabarRecorridoConModelo(vivo, sensibilidad, ""); }
+
+        /** Igual que grabarRecorrido, pero indicando el modelo (yolo26s, yolo26n o yolo26m; vacío = el del servidor). */
+        @JavascriptInterface
+        public void grabarRecorridoConModelo(boolean vivo, String sensibilidad, String modelo) {
             runOnUiThread(() -> {
                 try {
                     Intent it = new Intent(MainActivity.this, RecorridoActivity.class);
+                    it.putExtra(RecorridoActivity.EXTRA_MODELO, modelo != null && modelo.matches("[a-z0-9_]{1,20}") ? modelo : "");
                     it.putExtra(RecorridoActivity.EXTRA_VIVO, vivo);
                     it.putExtra(RecorridoActivity.EXTRA_SENS, "sensible".equals(sensibilidad) ? "sensible" : "normal");
                     it.putExtra(RecorridoActivity.EXTRA_SERVIDOR, prefs.getString("servidor", ""));

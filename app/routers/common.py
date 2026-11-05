@@ -3,6 +3,7 @@ from collections import Counter
 
 from ..config import STORAGE
 from ..models import Captura
+from ..modelos import registro
 
 
 def to_out(c: Captura, with_dets: bool = False) -> dict:
@@ -23,6 +24,7 @@ def to_out(c: Captura, with_dets: bool = False) -> dict:
         "origen_gps": c.origen_gps,
         "notas": c.notas,
         "modelo_version": c.modelo_version,
+        "modelo_nombre": registro.nombre_por_version(c.modelo_version, c.parametros),
         "conf_umbral": c.conf_umbral,
         "perfil": c.perfil,
         "parametros": c.parametros,

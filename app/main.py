@@ -7,7 +7,8 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import STORAGE, settings
 from .db import ensure_schema
-from .inference import ModelNotAvailable, detector
+from .inference import ModelNotAvailable
+from .modelos import registro
 from . import security
 from .routers import analizar, capturas, resumen, tramos, videos
 
@@ -22,8 +23,9 @@ async def lifespan(app: FastAPI):
     videos.limpiar_tmp()  # borra restos de videos temporales de ejecuciones anteriores
     if settings.preload_model:
         try:
-            detector.load()
-            log.info("Modelo cargado: %s", detector.version)
+            det = registro.predeterminado().detector
+            det.load()
+            log.info("Modelo cargado: %s", det.version)
         except ModelNotAvailable as e:
             log.warning("%s (la app arranca, pero no podrá analizar imágenes)", e)
     yield
