@@ -162,6 +162,9 @@ const fmtMB = (b) => (b / 1048576).toFixed(1) + " MB";
 let files = [];
 let CFG = { foto_mb: 15, video_mb: 500, video_max_frames: 300, video_max_frames_cap: 6000, ms_por_imagen: null,
   perfiles: { normal: { conf: 0.25, conf_clase: {} }, sensible: { conf: 0.1, conf_clase: {} } } };
+let MODELOS = [];
+const modeloSel = () => $('input[name=modelo]:checked')?.value || null;
+const modeloInfo = () => MODELOS.find((m) => m.id === modeloSel());
 const registro = new Map();
 let regId = 0;
 const reg = (c) => { registro.set(++regId, c); return regId; };
@@ -200,8 +203,9 @@ function updateForm(limpiar) {
   $("#maxfr-hint").textContent = `Máximo ${CFG.video_max_frames_cap}. Si el video da más, se espacian los análisis para respetarlo.` +
     (ms ? ` En este equipo cada fotograma tarda ≈${Math.round(ms)} ms: ${mf.value || CFG.video_max_frames} fotogramas ≈ ${fmtDur((mf.value || CFG.video_max_frames) * ms / 1000)}.` : "");
   const o = $("#f-sens").options;
+  const mi = modeloInfo();
   o[0].textContent = `Normal · umbral ${umbralTxt(CFG.perfiles.normal)}`;
-  o[1].textContent = `Sensible · umbral ${umbralTxt(CFG.perfiles.sensible)}`;
+  o[1].textContent = `Sensible · umbral ${umbralTxt(mi ? mi.perfiles.sensible : CFG.perfiles.sensible)}`;
   $("#sens-hint").textContent = $("#f-sens").value === "sensible"
     ? "Detecta más daños leves o dudosos, pero también más falsas alarmas. El índice saldrá más alto: no lo compares con capturas analizadas en «Normal»."
     : "Equilibrada: menos falsas alarmas, pero puede pasar por alto daños leves.";
@@ -214,6 +218,32 @@ document.querySelectorAll("input[name=vmodo]").forEach((i) => (i.onchange = () =
 $("#f-maxfr").oninput = () => updateForm(false);
 $("#f-gpx").onchange = () => updateForm(false);
 
+const nf = (x) => x.toFixed(3).replace(".", ",");
+function pintarModelos() {
+  const box = $("#modelos-lista");
+  let guardado = null;
+  try { guardado = localStorage.getItem("modelo"); } catch { /* sin almacenamiento */ }
+  const inicial = MODELOS.find((m) => m.id === guardado && m.disponible) || MODELOS.find((m) => m.predeterminado && m.disponible) || MODELOS.find((m) => m.disponible);
+  box.innerHTML = MODELOS.map((m) => `<label class="modelo-op${m.disponible ? "" : " off"}">
+      <input type="radio" name="modelo" value="${esc(m.id)}" ${m.id === inicial?.id ? "checked" : ""} ${m.disponible ? "" : "disabled"}>
+      <b>${esc(m.nombre)}</b><em>${esc(m.etiqueta)}</em>
+      <small>${esc(m.resumen)}<br>mAP50-95 (RDD2022, validación): ${nf(m.metricas.map_val)} · ${m.metricas.ms_cpu[0]}–${m.metricas.ms_cpu[1]} ms/imagen en CPU del autor · ${String(m.metricas.peso_mb).replace(".", ",")} MB${m.disponible ? "" : "<br><b>Archivo del modelo no instalado en este servidor.</b>"}</small>
+    </label>`).join("");
+  box.querySelectorAll("input").forEach((i) => (i.onchange = () => {
+    try { localStorage.setItem("modelo", i.value); } catch { /* ignorar */ }
+    updateForm(false);
+    precargarModelo();
+  }));
+  $("#modelos-box").hidden = MODELOS.length < 2;
+}
+async function precargarModelo() {
+  const id = modeloSel(), st = $("#modelo-estado");
+  const m = modeloInfo();
+  if (!id || !m || m.cargado) { st.textContent = ""; return; }
+  st.textContent = "Cargando el modelo… el primer análisis puede tardar unos segundos.";
+  try { await api(`/api/modelos/${id}/cargar`, { method: "POST" }); m.cargado = true; st.textContent = ""; }
+  catch (e) { st.textContent = "No se pudo cargar el modelo: " + e.message; }
+}
 function fillLegend() {
   $("#legend").innerHTML = Object.values(CLASES).map((c) => `<span class="chip"><i style="background:${c.c}"></i>${c.n}</span>`).join("");
 }
@@ -227,7 +257,10 @@ async function cargarSelectTramos(sel, keep) {
 async function loadAnalizar() {
   fillLegend();
   try { CFG = await api("/api/config"); } catch { /* se usan los valores por defecto */ }
+  try { MODELOS = (await api("/api/modelos")).modelos; } catch { MODELOS = []; }
+  pintarModelos();
   updateForm(false);
+  precargarModelo();
   try {
     const ts = await cargarSelectTramos($("#f-tramo"));
     $("#no-tramos").hidden = ts.length > 0;
@@ -307,6 +340,7 @@ async function analizarFotos(guardar, lat, lon) {
     const fd = new FormData();
     fd.append("file", queue[i]);
     fd.append("sensibilidad", $("#f-sens").value);
+    if (modeloSel()) fd.append("modelo", modeloSel());
     let c;
     try {
       if (guardar) {
@@ -324,7 +358,7 @@ async function analizarFotos(guardar, lat, lon) {
           lat: r.gps_exif?.lat ?? null, lon: r.gps_exif?.lon ?? null, origen_gps: r.gps_exif ? "exif" : null,
           indice_severidad: r.indice_severidad, calificacion: r.calificacion, conteo: r.conteo,
           n_detecciones: r.n_detecciones, detecciones: r.detecciones, tiempo_inferencia_ms: r.tiempo_inferencia_ms,
-          conf_umbral: r.conf_umbral, perfil: r.perfil, modelo_version: r.modelo_version, notas: null,
+          conf_umbral: r.conf_umbral, perfil: r.perfil, modelo_version: r.modelo_version, modelo_nombre: modeloInfo() ? `${modeloInfo().nombre} (${modeloInfo().etiqueta})` : null, notas: null,
         };
       }
       const holder = document.createElement("div");
@@ -401,6 +435,7 @@ async function analizarVideo(file, guardar) {
   const fd = new FormData();
   fd.append("file", file);
   fd.append("sensibilidad", $("#f-sens").value);
+  if (modeloSel()) fd.append("modelo", modeloSel());
   const mf = parseInt($("#f-maxfr").value, 10);
   if (!(mf >= 1 && mf <= CFG.video_max_frames_cap)) { card.remove(); return toast(`El límite de fotogramas debe estar entre 1 y ${CFG.video_max_frames_cap}.`, "err"); }
   const gpx = $("#f-gpx").files[0];
@@ -608,7 +643,7 @@ function showCaptura(c) {
           <dt>GPS</dt><dd>${esc(gps)}</dd><dt>Archivo</dt><dd>${esc(c.archivo_original)}</dd>
           <dt>Tamaño</dt><dd>${c.ancho}×${c.alto} px</dd>
           <dt>Sensibilidad</dt><dd>${esc(c.perfil)} · umbral ${c.conf_umbral}</dd>
-          <dt>Modelo</dt><dd>${esc(c.modelo_version)}</dd>
+          <dt>Modelo</dt><dd>${esc(c.modelo_nombre || c.modelo_version)}</dd>
           <dt>Análisis</dt><dd>${Math.round(c.tiempo_inferencia_ms)} ms</dd>
           ${c.notas ? `<dt>Notas</dt><dd>${esc(c.notas)}</dd>` : ""}</dl>
         ${filas ? `<table style="margin-top:12px"><thead><tr><th>Daño</th><th>Conf.</th><th>% imagen</th></tr></thead><tbody>${filas}</tbody></table>` : '<p class="hint">Sin daños detectados con este umbral.</p>'}
@@ -692,6 +727,7 @@ async function renderSeguimiento(id) {
     </div>
     <div class="card">
       <h2>Evolución del índice de severidad</h2>
+      ${(s.modelos || []).length > 1 ? `<p class="warn">Las fotos de este tramo se analizaron con modelos distintos (${s.modelos.map(esc).join(", ")}). Sus índices no son directamente comparables: la tendencia puede estar sesgada.</p>` : ""}
       ${s.perfiles.length > 1 ? '<p class="warn">Las fotos de este tramo se analizaron con sensibilidades distintas (normal y sensible). Sus índices no son directamente comparables: la tendencia puede estar sesgada.</p>' : ""}
       <div class="trend"><span class="tag t-${tr.disponible ? tr.sentido : "incierta"}">${tr.disponible ? (tr.sentido === "incierta" ? "sin tendencia clara" : esc(tr.sentido)) : "sin tendencia"}</span><span>${esc(tr.mensaje)}</span></div>
       <div class="chart-box" style="height:300px;margin-top:12px"><canvas id="ch-seg"></canvas></div>

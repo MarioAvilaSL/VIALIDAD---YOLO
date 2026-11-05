@@ -104,6 +104,27 @@ La carpeta [`entrenamiento/`](entrenamiento/) reúne la configuración (`args.ya
   <img src="entrenamiento/graficas/confusion_matrix_normalized.png" alt="Matriz de confusión normalizada" width="55%">
 </p>
 
+### Evidencia de YOLO26n y YOLO26m
+
+Se entrenaron con el mismo procedimiento, las mismas particiones y el mismo presupuesto de tiempo (4 h) que YOLO26s, por eso completaron 55 y 24 épocas (YOLO26s, 47). Los cuadernos ejecutados, con todas sus salidas, y las cifras por época están en [`entrenamiento/yolo26n/`](entrenamiento/yolo26n/) y [`entrenamiento/yolo26m/`](entrenamiento/yolo26m/).
+
+<details>
+<summary>Curvas de validación por época (YOLO26n y YOLO26m)</summary>
+
+<p align="center"><img src="entrenamiento/yolo26n/curva_validacion.png" alt="Curvas de validación de YOLO26n" width="90%"></p>
+<p align="center"><img src="entrenamiento/yolo26m/curva_validacion.png" alt="Curvas de validación de YOLO26m" width="90%"></p>
+
+Reconstruidas del registro de salida de los cuadernos ejecutados (validación de 2100 imágenes por época).
+</details>
+
+<details>
+<summary>Curvas precisión–recall de los tres modelos (validación)</summary>
+
+<p align="center"><img src="entrenamiento/comparacion/curvas_precision_recall_tres_modelos.png" alt="Curvas precisión-recall por clase de YOLO26s, YOLO26m y YOLO26n" width="100%"></p>
+
+Más arriba y a la derecha es mejor. El punto negro es el umbral normal (0,25) y la estrella el umbral sensible de cada modelo. En la leyenda de la imagen, «actual» es YOLO26s, «experimento» YOLO26m y «nuevo» YOLO26n.
+</details>
+
 ## Arquitectura
 
 ```
@@ -115,6 +136,22 @@ La carpeta [`entrenamiento/`](entrenamiento/) reúne la configuración (`args.ya
 
 - **Backend:** FastAPI, SQLAlchemy 2, PostgreSQL (psycopg 3).
 - **Inferencia:** Ultralytics, OpenCV, Pillow. Video anotado con `imageio-ffmpeg` (sin instalar ffmpeg aparte).
+### Tres modelos a elegir
+
+La web y la app móvil permiten elegir entre tres modelos entrenados con el mismo procedimiento y las mismas particiones. Todas las cifras fueron medidas; **ninguna es de carreteras de Ecuador**.
+
+| | YOLO26s (predeterminado) | YOLO26n (rápido) | YOLO26m (más preciso) |
+|---|---|---|---|
+| mAP50-95, validación | 0,337 | 0,322 | 0,341 |
+| mAP50-95, prueba | 0,353 | 0,346 | 0,362 |
+| Recall medio sensible, prueba | 0,695 | 0,666 | 0,714 |
+| ms por imagen en CPU* | 108–120 | 58–71 | 239–281 |
+| Tamaño de `best.pt` | 20,3 MB | 5,5 MB | 44,0 MB |
+
+\* Rango de 3 corridas de `entrenamiento/yolo26m/medir_velocidad_cpu.py` (27 fotos a 640 px) en el computador del autor, sin GPU. En otro equipo serán otras cifras. Las diferencias entre s y m son menores que la variación entre validación y prueba de un mismo modelo y no se midió la variación entre semillas; YOLO26n pierde recall de forma consistente, sobre todo en baches. Cada modelo usa sus propios umbrales del perfil sensible. Detalle en `entrenamiento/yolo26m/` y `entrenamiento/yolo26n/`.
+
+Copia los pesos a `models/` como `best.pt` (s), `best_yolo26n.pt` y `best_yolo26m.pt`; si falta un archivo, esa opción aparece desactivada. La API acepta el campo opcional `modelo` en `/api/analizar`, `/api/analizar_vivo`, `/api/capturas` y `/api/videos`; `GET /api/modelos` lista las opciones y `POST /api/modelos/{id}/cargar` precarga una. Cada resultado guardado recuerda con qué modelo se obtuvo, y el seguimiento avisa si un tramo mezcla modelos (sus índices no son directamente comparables). Las cifras mostradas en la interfaz están en `app/modelos.py`.
+
 - **Interfaz web:** HTML + CSS + JavaScript sin proceso de build (Leaflet, Chart.js, JSZip y jsPDF incluidos).
 - **Android:** envoltorio WebView en Java, sin dependencias externas.
 
@@ -122,7 +159,7 @@ La carpeta [`entrenamiento/`](entrenamiento/) reúne la configuración (`args.ya
 
 - Windows (probado), Python **3.11–3.13**
 - PostgreSQL con una base de datos vacía llamada `vialidad`
-- El modelo entrenado `models/best.pt`
+- El modelo entrenado `models/best.pt` (y, opcionalmente, `best_yolo26n.pt` y `best_yolo26m.pt`)
 - Para la app móvil: Android Studio y un teléfono con Android 10 o superior
 
 ## Instalación
@@ -201,6 +238,10 @@ Todas las opciones están en `.env` (plantilla en `.env.example`):
 | `MAX_UPLOAD_MB` / `MAX_VIDEO_MB` | Tamaño máximo de foto / video | 15 / 500 |
 | `VIDEO_MAX_FRAMES` | Límite de fotogramas por video | 300 (tope 6000) |
 | `PERFIL_SENSIBLE` | Perfil sensible (solo si repites la calibración) | calibrado |
+| `MODELO_PREDETERMINADO` | Modelo que se usa si el cliente no elige (`yolo26s`, `yolo26n` o `yolo26m`) | `yolo26s` |
+| `MODELOS_HABILITADOS` | Modelos que se ofrecen, separados por coma | `yolo26s,yolo26n,yolo26m` |
+| `MODEL_PATH_YOLO26N` / `MODEL_PATH_YOLO26M` | Archivos de los modelos opcionales | `models/best_yolo26n.pt` / `models/best_yolo26m.pt` |
+| `PERFIL_SENSIBLE_YOLO26N` / `PERFIL_SENSIBLE_YOLO26M` | Umbrales sensibles de cada modelo (calibrados en validación; no se comparten entre modelos) | calibrados |
 | `APP_TOKEN` | Clave de acceso opcional para `/api` y `/media` | vacío (sin clave) |
 | `TIMEZONE` | Zona horaria | `America/Guayaquil` |
 
@@ -214,7 +255,7 @@ $env:TEST_DATABASE_URL="postgresql+psycopg://postgres:TU_PASSWORD@localhost:5432
 pytest -q
 ```
 
-La suite (59 pruebas) se ejecuta automáticamente en cada *push* con GitHub Actions (`.github/workflows/ci.yml`) y cubre severidad, tramos, subida, EXIF, validaciones, perfiles de sensibilidad, migración de esquema, modo «solo analizar», video, video marcado, conteo y descarte de daños, GPX, conteo en vivo, análisis en vivo y acceso con clave.
+La suite (68 pruebas) se ejecuta automáticamente en cada *push* con GitHub Actions (`.github/workflows/ci.yml`) y cubre severidad, tramos, subida, EXIF, validaciones, perfiles de sensibilidad, migración de esquema, modo «solo analizar», video, video marcado, conteo y descarte de daños, GPX, conteo en vivo, análisis en vivo, selector de modelos y acceso con clave.
 
 ## Estructura del repositorio
 

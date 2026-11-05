@@ -20,7 +20,8 @@ from PIL import Image, ImageDraw, ImageFont
 from . import severity
 from .config import settings
 from .gpx import Ruta
-from .inference import detector, draw
+from .inference import draw
+from .modelos import registro
 from .tracking import Hallazgo, Tracker
 
 UMBRAL_AFECTADO = severity.BANDS[0][0]  # un fotograma cuenta como "afectado" si su índice supera "Bueno"
@@ -145,7 +146,7 @@ def _ajustar(frame_bgr: np.ndarray) -> Image.Image:
     return Image.fromarray(cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB))
 
 
-def analizar_video(path: Path, nombre_perfil: str, *, modo: str = "fotogramas", intervalo_s: float = 1.0,
+def analizar_video(path: Path, nombre_perfil: str, *, modelo=None, modo: str = "fotogramas", intervalo_s: float = 1.0,
                    cada_n: int = 1, max_frames: int | None = None, salida: Path | None = None,
                    on_progress=None, cancelado=None, gps: Ruta | None = None,
                    inicio_utc: datetime | None = None, desfase_s: float = 0.0) -> Resultado:
@@ -172,8 +173,10 @@ def analizar_video(path: Path, nombre_perfil: str, *, modo: str = "fotogramas", 
         if total and math.ceil(total / step) > max_frames:
             step = math.ceil(total / max_frames)       # se amplía el paso para respetar el límite
         efectivo = step / fps
-        perfil = settings.perfil(nombre_perfil)
-        detector.load()
+        mod = modelo or registro.predeterminado()
+        perfil = mod.perfil(nombre_perfil)
+        det = mod.detector
+        det.load()
 
         muestras: list[Muestra] = []
         tracker = Tracker(min_hits=2 if step <= 5 else 1) if anotado else None
@@ -206,7 +209,7 @@ def analizar_video(path: Path, nombre_perfil: str, *, modo: str = "fotogramas", 
                     if anotado:
                         escritor = EscritorH264(salida, img.width, img.height, fps)
                 if analizar:
-                    dets, _ = detector.predict(img, perfil)
+                    dets, _ = det.predict(img, perfil)
                     indice, _ = severity.calcular((d.clase, d.area_frac) for d in dets)
                     conteo: dict[str, int] = {}
                     for d in dets:

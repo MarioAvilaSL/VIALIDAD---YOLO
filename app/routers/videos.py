@@ -15,10 +15,10 @@ from sqlalchemy.orm import Session, selectinload
 from .. import jobs
 from ..config import STORAGE, settings
 from ..db import SessionLocal, get_db
-from ..inference import detector
 from ..gpx import GpxError, leer_gpx
+from ..modelos import registro
 from ..models import Tramo, Video, VideoFrame, VideoHallazgo
-from ..services import Sensibilidad, parametros_json, parse_fecha
+from ..services import Sensibilidad, parametros_json, parse_fecha, resolver_modelo
 from ..video import analizar_video
 
 router = APIRouter(prefix="/api/videos", tags=["videos"])
@@ -55,12 +55,12 @@ def _guardar_subida(file: UploadFile, ext: str) -> Path:
     return destino
 
 
-def _resultado_vivo(res, archivo: str, guardado: bool, video_id: int | None, imagenes: list[str],
+def _resultado_vivo(res, modelo, archivo: str, guardado: bool, video_id: int | None, imagenes: list[str],
                     video_url: str | None = None, hallazgos: list[dict] | None = None) -> dict:
     return {
         "guardado": guardado, "video_id": video_id, "video_url": video_url,
         "hallazgos": hallazgos or [], "hallazgos_truncado": res.hallazgos_truncado, "ruta": res.ruta,
-        "resumen": {**res.meta, "archivo": archivo, "modelo_version": detector.version},
+        "resumen": {**res.meta, "archivo": archivo, "modelo_version": modelo.detector.version, "modelo": modelo.id},
         "serie": [{"t": m.t, "indice": m.indice, "n": m.n, "conteo": m.conteo} for m in res.muestras],
         "mejores": [{"t": m.t, "indice": m.indice, "conteo": m.conteo, "imagen": img, "lat": m.lat, "lon": m.lon}
                     for (m, _), img in zip(res.mejores, imagenes)],
@@ -73,6 +73,7 @@ def analizar(
     gpx: UploadFile | None = File(None),
     desfase_s: float = Form(0.0, ge=-3600, le=3600),
     sensibilidad: Sensibilidad = Form("normal"),
+    modelo: str | None = Form(None),
     modo: Modo = Form("fotogramas"),
     intervalo_s: float = Form(1.0, ge=0.2, le=30),
     cada_n: int = Form(3, ge=1, le=60),
@@ -84,6 +85,7 @@ def analizar(
     conteo_vivo: str | None = Form(None, max_length=500),
     db: Session = Depends(get_db),
 ):
+    mod = resolver_modelo(modelo)
     vivo_json = _validar_conteo_vivo(conteo_vivo)
     nombre = (file.filename or "video")[-255:]
     ext = Path(nombre).suffix.lower()
@@ -124,7 +126,7 @@ def analizar(
         try:
             def prog(h, t):
                 job.hechos, job.total = h, t
-            res = analizar_video(ruta, sensibilidad, modo=modo, intervalo_s=intervalo_s, cada_n=cada_n,
+            res = analizar_video(ruta, sensibilidad, modelo=mod, modo=modo, intervalo_s=intervalo_s, cada_n=cada_n,
                                  max_frames=max_frames, salida=salida, on_progress=prog, cancelado=job.cancelar.is_set,
                                  gps=gps, inicio_utc=inicio_utc, desfase_s=desfase_s)
         finally:
@@ -135,9 +137,9 @@ def analizar(
             for k, h in enumerate(res.hallazgos):
                 job.adjuntos[f"h{k}"] = h.jpg
                 hall.append(_hall_dict(h, k, f"/api/videos/jobs/{job.id}/hallazgo/{k}.jpg", False))
-            return _resultado_vivo(res, nombre, False, None, [data_url_bytes(j) for _, j in res.mejores], url, hall)
+            return _resultado_vivo(res, mod, nombre, False, None, [data_url_bytes(j) for _, j in res.mejores], url, hall)
         return _persistir(res, nombre, tramo_id, inicio or inicio_ahora, "manual" if inicio else "subida",
-                          sensibilidad, notas, job, vivo_json)
+                          sensibilidad, notas, job, vivo_json, mod)
 
     job = jobs.lanzar(trabajo)
     return {"job_id": job.id}
@@ -168,9 +170,10 @@ def _validar_conteo_vivo(txt: str | None) -> str | None:
         raise HTTPException(422, "conteo_vivo no es válido.")
 
 
-def _persistir(res, archivo, tramo_id, inicio, origen, sensibilidad, notas, job=None, conteo_vivo=None) -> dict:
+def _persistir(res, archivo, tramo_id, inicio, origen, sensibilidad, notas, job=None, conteo_vivo=None, modelo=None) -> dict:
     m = res.meta
-    perfil = settings.perfil(sensibilidad)
+    modelo = modelo or registro.predeterminado()
+    perfil = modelo.perfil(sensibilidad)
     db = SessionLocal()
     carpeta = None
     try:
@@ -179,7 +182,7 @@ def _persistir(res, archivo, tramo_id, inicio, origen, sensibilidad, notas, job=
             duracion_s=m["duracion_s"], fps=m["fps"], ancho=m["ancho"], alto=m["alto"],
             intervalo_s=m["intervalo_s"], n_frames=m["n_frames"], indice_medio=m["indice_medio"],
             indice_max=m["indice_max"], pct_afectados=m["pct_afectados"], calificacion=m["calificacion"],
-            perfil=sensibilidad, parametros=parametros_json(sensibilidad, perfil), modelo_version=detector.version,
+            perfil=sensibilidad, parametros=parametros_json(sensibilidad, perfil, modelo), modelo_version=modelo.detector.version,
             tiempo_proceso_s=m["tiempo_proceso_s"], notas=(notas or None),
             modo=m["modo"], cada_n=m.get("cada_n"),
             ruta_gps=json.dumps(res.ruta) if res.ruta else None, conteo_vivo=conteo_vivo,
@@ -222,7 +225,7 @@ def _persistir(res, archivo, tramo_id, inicio, origen, sensibilidad, notas, job=
         raise
     finally:
         db.close()
-    return _resultado_vivo(res, archivo, True, vid, [f"/media/{rutas[mu.t]}" for mu, _ in res.mejores],
+    return _resultado_vivo(res, modelo, archivo, True, vid, [f"/media/{rutas[mu.t]}" for mu, _ in res.mejores],
                           f"/media/{ruta_anot}" if ruta_anot else None, hall)
 
 

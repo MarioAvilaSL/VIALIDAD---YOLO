@@ -18,6 +18,7 @@ let abortar = null, jobId = null, cancelado = false;
 let R = null; // resultado actual {tipo, ...}
 let chart = null, chartH = null;
 let desdeHist = false, vistaActual = "principal";
+let MODELOS = [];
 let CFG = { video_max_frames: 300, video_max_frames_cap: 6000, ms_por_imagen: 94 };
 
 function toast(msg, err) {
@@ -93,10 +94,34 @@ function tramoElegido() {
   return v ? { id: v, nombre: $("#o-tramo").selectedOptions[0].dataset.nombre || $("#o-tramo").selectedOptions[0].textContent } : null;
 }
 
+/* ---------- modelo de detección ---------- */
+const nf = (x) => x.toFixed(3).replace(".", ",");
+const modeloId = () => ($("#o-modelo").value || "");
+function pintarModelos() {
+  const sel = $("#o-modelo");
+  $("#l-modelo").hidden = MODELOS.length < 2;
+  sel.innerHTML = MODELOS.map((m) => `<option value="${m.id}"${m.disponible ? "" : " disabled"}>${m.nombre} · ${m.etiqueta}${m.disponible ? "" : " (no instalado)"}</option>`).join("");
+  const g = lsGet("modelo");
+  const ini = MODELOS.find((m) => m.id === g && m.disponible) || MODELOS.find((m) => m.predeterminado && m.disponible) || MODELOS.find((m) => m.disponible);
+  if (ini) sel.value = ini.id;
+  hintModelo();
+}
+function hintModelo() {
+  const m = MODELOS.find((x) => x.id === modeloId());
+  $("#modelo-hint").textContent = m ? `${m.resumen} mAP50-95 (RDD2022, validación) ${nf(m.metricas.map_val)}; ${m.metricas.ms_cpu[0]}–${m.metricas.ms_cpu[1]} ms/imagen en la CPU del autor.` : "";
+}
+$("#o-modelo").addEventListener("change", () => {
+  lsSet("modelo", modeloId()); hintModelo();
+  const m = MODELOS.find((x) => x.id === modeloId());
+  if (m && !m.cargado) fetch(`/api/modelos/${m.id}/cargar`, { method: "POST" }).then(() => { m.cargado = true; }).catch(() => {});
+});
+
 /* ---------- límite de fotogramas ---------- */
 const OPC_FRAMES = [250, 500, 1000, 2000, 4000, 6000];
 async function cargarConfig() {
   try { const c = await leer(await fetch("/api/config", { cache: "no-store" })); CFG = { ...CFG, ...c }; } catch {}
+  try { MODELOS = (await leer(await fetch("/api/modelos", { cache: "no-store" }))).modelos; } catch { MODELOS = []; }
+  pintarModelos();
   const cap = CFG.video_max_frames_cap || 6000;
   let ops = OPC_FRAMES.filter((n) => n <= cap);
   if (!ops.includes(cap) && cap < 6000) ops.push(cap);
@@ -136,7 +161,10 @@ if (window.Android && typeof Android.grabarRecorrido === "function") {
   $("#c-vivo").checked = lsGet("vivo") !== "0";
   $("#c-vivo").addEventListener("change", () => lsSet("vivo", $("#c-vivo").checked ? "1" : "0"));
   $("#btn-recorrido").onclick = () => {
-    try { Android.grabarRecorrido($("#c-vivo").checked, $("#o-sens").value); }
+    try {
+      if (typeof Android.grabarRecorridoConModelo === "function") Android.grabarRecorridoConModelo($("#c-vivo").checked, $("#o-sens").value, modeloId());
+      else Android.grabarRecorrido($("#c-vivo").checked, $("#o-sens").value);
+    }
     catch (e) { toast("No se pudo abrir la cámara", true); }
   };
 }
@@ -290,6 +318,7 @@ $("#btn-analizar").onclick = async () => {
   const fd = new FormData();
   fd.append("file", archivo, archivo.name || (esVideo ? "video.mp4" : "foto.jpg"));
   fd.append("sensibilidad", $("#o-sens").value);
+  if (modeloId()) fd.append("modelo", modeloId());
   if (guardar) {
     fd.append("tramo_id", tr.id);
     const n = $("#o-notas").value.trim(); if (n) fd.append("notas", n);
@@ -546,9 +575,11 @@ async function informe() {
     doc.setFillColor(15, 23, 42); doc.rect(0, 0, W, 22, "F");
     doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.text("Informe de daños viales", M, 14); y = 30;
     const modelo = R.tipo === "foto" ? R.j.modelo_version : R.m.modelo_version;
+    const idm = R.tipo === "foto" ? R.j.modelo : R.m.modelo, mm = MODELOS.find((x) => x.id === idm);
+    const nombreModelo = mm ? `${mm.nombre} (${modelo})` : null;
     const perfil = R.tipo === "foto" ? R.j.perfil : R.m.perfil, umbral = R.tipo === "foto" ? R.j.conf_umbral : R.m.conf_umbral;
     texto(`Fecha del informe: ${ahora}`); texto(`Archivo: ${archivo ? archivo.name : (R.tipo === "foto" ? R.j.archivo : R.m.archivo) || "-"}`);
-    texto(`Sensibilidad: ${perfil} (umbral de confianza ${umbral}) · Modelo: ${modelo}`);
+    texto(`Sensibilidad: ${perfil} (umbral de confianza ${umbral}) · Modelo: ${nombreModelo || modelo}`);
     if (R.tipo === "foto" && R.j.guardado) texto(`Guardado en el servidor: tramo «${R.j.tramo}», captura n.º ${R.j.id}`);
     if (R.tipo === "video" && R.res.guardado) texto(`Guardado en el servidor: tramo «${R.tramo || ""}», video n.º ${R.res.video_id}`);
 
@@ -628,6 +659,7 @@ async function verTramo(id) {
   const ult = t.ultimo_indice != null ? `Último índice de fotos: <b>${t.ultimo_indice}</b> ${badge(t.ultima_calificacion)}` : "Sin fotos guardadas todavía.";
   $("#h-resumen").innerHTML = `<div class="rowh"><span>${t.n_capturas} ${t.n_capturas === 1 ? "foto" : "fotos"} · ${t.n_videos} ${t.n_videos === 1 ? "video" : "videos"}</span></div><div>${ult}</div>` +
     (td.mensaje ? `<div class="nota">${esc(td.mensaje)}</div>` : "") +
+    ((s.modelos || []).length > 1 ? '<div class="warn">Este tramo mezcla fotos analizadas con modelos distintos: los índices no son del todo comparables.</div>' : "") +
     ((s.perfiles || []).length > 1 ? '<div class="warn">Este tramo mezcla fotos analizadas con sensibilidades distintas: los índices no son del todo comparables.</div>' : "");
   // gráfica: índice por fecha (fotos: promedio diario; videos: índice medio)
   if (chartH) { chartH.destroy(); chartH = null; }

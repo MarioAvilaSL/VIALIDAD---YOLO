@@ -44,6 +44,23 @@ class Settings(BaseSettings):
         conf_clase={"longitudinal_crack": 0.16, "transverse_crack": 0.17, "alligator_crack": 0.11, "pothole": 0.14},
     )
 
+    # Modelos disponibles. YOLO26s es el predeterminado y usa MODEL_PATH y PERFIL_SENSIBLE (lo de siempre).
+    # YOLO26n (rápido) y YOLO26m (más preciso) son opcionales: aparecen en el selector solo si su archivo existe.
+    # Cada modelo tiene SU PROPIO perfil sensible: los umbrales de un modelo no sirven para otro. Los de n y m
+    # se midieron con calibracion en validación de RDD2022 (precisión mínima 0,50 por clase), igual que los de s.
+    modelo_predeterminado: str = "yolo26s"
+    modelos_habilitados: str = "yolo26s,yolo26n,yolo26m"   # ids permitidos, separados por coma
+    model_path_yolo26n: Path = Path("models/best_yolo26n.pt")
+    model_path_yolo26m: Path = Path("models/best_yolo26m.pt")
+    perfil_sensible_yolo26n: Perfil = Perfil(
+        conf=0.12,
+        conf_clase={"longitudinal_crack": 0.17, "transverse_crack": 0.18, "alligator_crack": 0.12, "pothole": 0.15},
+    )
+    perfil_sensible_yolo26m: Perfil = Perfil(
+        conf=0.11,
+        conf_clase={"longitudinal_crack": 0.15, "transverse_crack": 0.19, "alligator_crack": 0.11, "pothole": 0.15},
+    )
+
     # Video
     max_video_mb: int = 500
     video_max_frames: int = 300       # límite por defecto de fotogramas analizados por video

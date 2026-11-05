@@ -206,3 +206,15 @@ dt{color:var(--mut)}dd{margin:0;word-break:break-word}
 .hx:hover{background:#dc2626}
 .hc.off{opacity:.4}.hc.off img{filter:grayscale(1)}
 .vmap{height:340px;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0}
+
+.modelos{border:0;padding:0;margin:13px 0 0}
+.modelos legend{font-weight:550;font-size:13.5px;color:var(--ink2);padding:0}
+.modelos-lista{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin-top:6px}
+.modelo-op{display:block;margin:0;border:1.5px solid #cbd5e1;border-radius:10px;padding:9px 11px;cursor:pointer;background:#fff;font-weight:400}
+.modelo-op input{position:absolute;opacity:0;pointer-events:none}
+.modelo-op b{display:block;color:var(--ink);font-size:14px}
+.modelo-op em{display:block;font-style:normal;font-weight:600;font-size:12.5px;color:var(--acc)}
+.modelo-op small{margin-top:4px;line-height:1.35}
+.modelo-op:has(input:checked){border-color:var(--acc);box-shadow:0 0 0 2px rgba(37,99,235,.15)}
+.modelo-op:has(input:focus-visible){outline:2px solid var(--acc)}
+.modelo-op.off{opacity:.55;cursor:not-allowed}

@@ -76,7 +76,7 @@ El botón 📋 de la esquina superior abre una vista simple del historial guarda
 - Debajo, la lista de **análisis guardados** (fotos y videos, del más reciente al más antiguo). Al tocar uno se abre su resultado completo: foto marcada, o video con el conteo y los daños; en videos se pueden descartar daños (✕) y el cambio queda guardado.
 - Desde ahí también se puede **guardar el informe PDF** de ese análisis o **eliminarlo del servidor** (pide pulsar dos veces para confirmar).
 
-## Recorrido con GPS (rama `experimental`)
+## Recorrido con GPS
 
 El botón **🛣 Recorrido con GPS** abre una pantalla de grabación propia de la app:
 
@@ -113,3 +113,8 @@ Detalles:
 | «Acceso no autorizado» | Falta o está mal la clave (`APP_TOKEN`); cámbiala con ⚙ |
 | El video marcado no se reproduce en la página | Guárdalo con «Guardar video marcado» y ábrelo con el reproductor del celular |
 | Sync de Gradle falla | Sin internet, o versión de Android Studio muy antigua (pide AGP 8.5; actualiza Android Studio) |
+
+
+## Elegir el modelo desde la app
+
+En «Opciones» aparece «Modelo de detección» (YOLO26s equilibrado por defecto, YOLO26n rápido, YOLO26m más preciso). La elección se recuerda y también se usa en el análisis en vivo del recorrido (el APK nuevo envía el campo `modelo`; un APK anterior sigue usando el modelo predeterminado del servidor). Con YOLO26m el análisis en vivo puede no seguir el ritmo de ~1 fotograma por segundo en un servidor sin GPU.

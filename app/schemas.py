@@ -50,6 +50,7 @@ class CapturaOut(BaseModel):
     origen_gps: str | None
     notas: str | None
     modelo_version: str
+    modelo_nombre: str | None = None
     conf_umbral: float
     perfil: str = "normal"
     parametros: str | None = None
